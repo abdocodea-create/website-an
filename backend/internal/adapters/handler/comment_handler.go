@@ -179,6 +179,8 @@ func (h *CommentHandler) Delete(c *gin.Context) {
 	// Assume Repo handles it or we do a GetByID check here.
 
 	userID := c.GetUint("user_id")
+	role := c.GetString("role") // Assumes AuthMiddleware sets "role"
+
 	// Simple ownership check
 	existing, err := h.repo.GetByID(uint(commentID))
 	if err != nil {
@@ -186,8 +188,8 @@ func (h *CommentHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	// Assuming there's a Role context, if needed. For now strictly owner.
-	if existing.UserID != userID {
+	// Allow if owner OR admin
+	if existing.UserID != userID && role != "admin" && role != "super_admin" {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Not authorized"})
 		return
 	}
@@ -198,6 +200,16 @@ func (h *CommentHandler) Delete(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Deleted"})
+}
+
+// GetAllComments for dashboard
+func (h *CommentHandler) GetAllComments(c *gin.Context) {
+	comments, err := h.repo.GetAllComments()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch comments"})
+		return
+	}
+	c.JSON(http.StatusOK, comments)
 }
 
 // Update

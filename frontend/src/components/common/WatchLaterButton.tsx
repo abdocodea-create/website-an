@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useWatchLaterStore } from '@/stores/watch-later-store';
 import { useAuthStore } from '@/stores/auth-store';
-import { Bookmark, BookmarkCheck, Loader2 } from 'lucide-react';
+import { Bookmark, BookmarkCheck, Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface WatchLaterButtonProps {
     animeId?: number;
@@ -10,6 +11,10 @@ interface WatchLaterButtonProps {
     variant?: 'default' | 'icon' | 'sidebar';
     className?: string;
     showLabel?: boolean;
+    // Metadata for rich notification
+    episodeTitle?: string;
+    episodeNumber?: number | string;
+    episodeImage?: string;
 }
 
 export const WatchLaterButton: React.FC<WatchLaterButtonProps> = ({
@@ -17,7 +22,10 @@ export const WatchLaterButton: React.FC<WatchLaterButtonProps> = ({
     episodeId,
     variant = 'default',
     className,
-    showLabel = true
+    showLabel = true,
+    episodeTitle,
+    episodeNumber,
+    episodeImage
 }) => {
     const { isSaved, toggleItem, items, fetchItems } = useWatchLaterStore();
     const { isAuthenticated } = useAuthStore();
@@ -37,8 +45,38 @@ export const WatchLaterButton: React.FC<WatchLaterButtonProps> = ({
         if (!isAuthenticated) return; // Or show login modal
 
         setLoading(true);
-        await toggleItem(animeId || null, episodeId || null);
+        const added = await toggleItem(animeId || null, episodeId || null);
         setLoading(false);
+
+        if (added) {
+            toast.custom((t) => (
+                <div className="flex w-full items-start gap-3 rounded-lg bg-white dark:bg-[#1a1a1a] p-4 shadow-lg border border-gray-100 dark:border-[#333] relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-2">
+                        <button onClick={() => toast.dismiss(t)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
+                    {episodeImage && (
+                        <div className="relative w-16 h-16 flex-shrink-0 rounded-md overflow-hidden bg-gray-200">
+                            <img src={episodeImage} alt={episodeTitle || 'Episode'} className="w-full h-full object-cover" />
+                        </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-gray-900 dark:text-white text-sm mb-1">
+                            تم الحفظ في القائمة!
+                        </h4>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
+                            {episodeTitle || `Episode ${episodeNumber}`}
+                        </p>
+                        {episodeNumber && (
+                            <span className="inline-block mt-1 px-1.5 py-0.5 text-[10px] font-bold bg-[#f47521]/10 text-[#f47521] rounded">
+                                EP {episodeNumber}
+                            </span>
+                        )}
+                    </div>
+                </div>
+            ), { position: 'top-center', duration: 4000 });
+        }
     };
 
     if (!isAuthenticated) return null;

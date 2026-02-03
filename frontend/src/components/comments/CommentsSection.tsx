@@ -11,6 +11,8 @@ import { CommentsSkeleton } from './CommentsSkeleton';
 
 interface CommentsSectionProps {
     episodeId: number;
+    stickyInput?: boolean; // New prop for mobile modal
+    onCommentInputRender?: (inputElement: React.ReactNode) => void; // Callback to pass input to parent
 }
 
 interface Comment {
@@ -30,7 +32,7 @@ interface Comment {
     episode_id?: number;
 }
 
-export const CommentsSection: React.FC<CommentsSectionProps> = ({ episodeId }) => {
+export const CommentsSection: React.FC<CommentsSectionProps> = ({ episodeId, stickyInput = false, onCommentInputRender }) => {
     const { user } = useAuthStore();
     const [comments, setComments] = useState<Comment[]>([]);
     const [newComment, setNewComment] = useState('');
@@ -129,8 +131,8 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({ episodeId }) =
     // Let's rely on Refetch for Reply/Delete for data consistency.
 
     return (
-        <div className="mt-8 flex flex-col bg-transparent overflow-visible shadow-sm p-6" dir="rtl">
-            <div className="flex items-center justify-between mb-8">
+        <div className={`flex flex-col bg-transparent shadow-sm ${stickyInput ? 'p-4' : 'mt-0 px-4 pb-4 pt-2'}`} dir="rtl">
+            <div className="flex items-center justify-between mb-5">
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white">{comments ? comments.length : 0} تعليق</h3>
                 {/* Sort Button - Implementation can wait or just be visual */}
                 <button className="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-[#272727] px-4 py-2 rounded-full transition">
@@ -140,55 +142,58 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({ episodeId }) =
             </div>
 
             {/* Add Comment Input */}
-            <div className="flex gap-4 mb-8">
-                <div className="flex items-center justify-center flex-shrink-0 w-10 h-10 overflow-hidden bg-purple-600 rounded-full select-none shadow-md">
-                    {user?.avatar ? (
-                        <img src={getAvatarUrl(user.avatar)} alt={user.name} className="object-cover w-full h-full" />
-                    ) : (
-                        <span className="text-lg font-bold text-white">
-                            {user?.name?.charAt(0).toUpperCase() || 'U'}
-                        </span>
-                    )}
-                </div>
-                <div className="flex-1">
-                    <div className="relative group">
-                        <RichTextInput
-                            ref={inputRef}
-                            value={newComment}
-                            onChange={setNewComment}
-                            onFocus={() => setIsMainInputFocused(true)}
-                            placeholder="إضافة تعليق..."
-                            className="w-full bg-transparent border-b-2 border-gray-300 dark:border-gray-700 focus:border-[#f47521] py-3 px-0 text-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-600 resize-none outline-none transition-colors duration-200"
-                        />
-                        <div className="absolute bottom-2 left-2 flex items-center gap-2">
-                            <div className="relative" ref={emojiRef}>
-                                <button onClick={() => setShowMainEmojiPicker(!showMainEmojiPicker)} className="p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-[#333] transition text-gray-500 dark:text-[#aaa] hover:text-[#0f0f0f] dark:hover:text-white">
-                                    <Smile className="w-5 h-5" />
-                                </button>
-                                {showMainEmojiPicker && (
-                                    <div className="absolute top-full mt-2 left-0 z-50">
-                                        <EmojiPicker onEmojiClick={onEmojiClick} theme={Theme.AUTO} />
-                                    </div>
-                                )}
-                            </div>
-                            <div className="relative" ref={customEmojiRef}>
-                                <button onClick={() => setShowCustomEmojiPicker(!showCustomEmojiPicker)} className="p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-[#333] transition text-gray-500 dark:text-[#aaa] hover:text-[#0f0f0f] dark:hover:text-white" title="رموز مخصصة">
-                                    <Sparkles className="w-5 h-5" />
-                                </button>
-                                {showCustomEmojiPicker && (
-                                    <CustomEmojiPicker onEmojiClick={onCustomEmojiClick} onClose={() => setShowCustomEmojiPicker(false)} />
-                                )}
-                            </div>
-                        </div>
+            {!stickyInput && (
+                <div className="flex gap-4 mb-8">
+                    <div className="flex items-center justify-center flex-shrink-0 w-10 h-10 overflow-hidden bg-purple-600 rounded-full select-none shadow-md">
+                        {user?.avatar ? (
+                            <img src={getAvatarUrl(user.avatar)} alt={user.name} className="object-cover w-full h-full" />
+                        ) : (
+                            <span className="text-lg font-bold text-white">
+                                {user?.name?.charAt(0).toUpperCase() || 'U'}
+                            </span>
+                        )}
                     </div>
-                    {(isMainInputFocused || newComment) && (
-                        <div className="flex items-center justify-end gap-3 mt-3 animate-in fade-in slide-in-from-top-2">
-                            <button onClick={() => { setIsMainInputFocused(false); setNewComment(''); }} className="px-4 py-2 text-sm font-bold text-gray-700 dark:text-[#f1f1f1] hover:bg-gray-200 dark:hover:bg-[#272727] rounded-full transition">إلغاء</button>
-                            <button onClick={addComment} disabled={!newComment} className={`px-5 py-2 text-sm font-bold rounded-full transition shadow-sm ${newComment ? 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md hover:-translate-y-0.5' : 'bg-gray-200 dark:bg-[#272727] text-gray-500 cursor-not-allowed'}`}>تعليق</button>
+                    <div className="flex-1">
+                        <div className="relative group">
+                            <RichTextInput
+                                ref={inputRef}
+                                value={newComment}
+                                onChange={setNewComment}
+                                onFocus={() => setIsMainInputFocused(true)}
+                                placeholder="إضافة تعليق..."
+                                className="w-full bg-transparent border-b-2 border-gray-300 dark:border-gray-700 focus:border-[#f47521] py-3 px-0 text-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-600 resize-none outline-none transition-colors duration-200"
+                            />
+                            <div className="absolute bottom-2 left-2 flex items-center gap-2">
+                                <div className="relative" ref={emojiRef}>
+                                    <button onClick={() => setShowMainEmojiPicker(!showMainEmojiPicker)} className="p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-[#333] transition text-gray-500 dark:text-[#aaa] hover:text-[#0f0f0f] dark:hover:text-white">
+                                        <Smile className="w-5 h-5" />
+                                    </button>
+                                    {showMainEmojiPicker && (
+                                        <div className="absolute top-full mt-2 left-0 z-50">
+                                            <EmojiPicker onEmojiClick={onEmojiClick} theme={Theme.AUTO} />
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="relative" ref={customEmojiRef}>
+                                    <button onClick={() => setShowCustomEmojiPicker(!showCustomEmojiPicker)} className="p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-[#333] transition text-gray-500 dark:text-[#aaa] hover:text-[#0f0f0f] dark:hover:text-white" title="رموز مخصصة">
+                                        <Sparkles className="w-5 h-5" />
+                                    </button>
+                                    {showCustomEmojiPicker && (
+                                        <CustomEmojiPicker onEmojiClick={onCustomEmojiClick} onClose={() => setShowCustomEmojiPicker(false)} />
+                                    )}
+                                </div>
+                            </div>
                         </div>
-                    )}
+                        {(isMainInputFocused || newComment) && (
+                            <div className="flex items-center justify-end gap-3 mt-3 animate-in fade-in slide-in-from-top-2">
+                                <button onClick={() => { setIsMainInputFocused(false); setNewComment(''); }} className="px-4 py-2 text-sm font-bold text-gray-700 dark:text-[#f1f1f1] hover:bg-gray-200 dark:hover:bg-[#272727] rounded-full transition">إلغاء</button>
+                                <button onClick={addComment} disabled={!newComment} className={`px-5 py-2 text-sm font-bold rounded-full transition shadow-sm ${newComment ? 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md hover:-translate-y-0.5' : 'bg-gray-200 dark:bg-[#272727] text-gray-500 cursor-not-allowed'}`}>تعليق</button>
+                            </div>
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
+
 
             {/* Comments List */}
             {isLoading ? (

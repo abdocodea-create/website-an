@@ -76,7 +76,7 @@ export default function EpisodesModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-4xl h-[90vh] p-0 gap-0 bg-white dark:bg-black border-gray-200 dark:border-[#222]">
+            <DialogContent className="max-w-4xl h-[90vh] p-0 gap-0 bg-white dark:bg-black border-gray-200 dark:border-[#222] rounded-none">
                 <DialogHeader className="p-4 border-b border-gray-200 dark:border-[#222]">
                     <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white">
                         {lang === 'ar' ? 'حلقات المسلسل' : 'Episodes'}

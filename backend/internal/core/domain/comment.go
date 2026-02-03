@@ -9,6 +9,7 @@ type Comment struct {
 	UserID    uint      `json:"user_id" gorm:"not null"`
 	User      *User     `json:"user" gorm:"foreignKey:UserID"`
 	EpisodeID uint      `json:"episode_id" gorm:"not null"`
+	Episode   *Episode  `json:"episode" gorm:"foreignKey:EpisodeID"`
 	ParentID  *uint     `json:"parent_id,omitempty"` // For nested replies
 	Parent    *Comment  `json:"parent,omitempty" gorm:"foreignKey:ParentID"`
 	Children  []Comment `json:"children,omitempty" gorm:"foreignKey:ParentID"`

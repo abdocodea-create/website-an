@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { LayoutDashboard, Users, Shield, Key, Settings, Box, Sparkles, Folder, Globe, Tag, Calendar, Building, Languages, Film, Play } from "lucide-react";
+import { LayoutDashboard, Users, Shield, Key, Settings, Box, Sparkles, Folder, Globe, Tag, Calendar, Building, Languages, Film, Play, Flag, BarChart3, MessageSquare } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
@@ -92,6 +92,24 @@ export function Sidebar({ className, onNavigate, lang = 'en' }: SidebarProps) {
             icon: Sparkles,
             href: `/${lang}/dashboard/ai-lab`,
             active: pathname.startsWith(`/${lang}/dashboard/ai-lab`),
+        },
+        {
+            label: "Reports",
+            icon: Flag,
+            href: `/${lang}/dashboard/reports`,
+            active: pathname.startsWith(`/${lang}/dashboard/reports`),
+        },
+        {
+            label: "Analytics",
+            icon: BarChart3,
+            href: `/${lang}/dashboard/analytics`,
+            active: pathname.startsWith(`/${lang}/dashboard/analytics`),
+        },
+        {
+            label: "Comments",
+            icon: MessageSquare,
+            href: `/${lang}/dashboard/comments`,
+            active: pathname.startsWith(`/${lang}/dashboard/comments`),
         },
         {
             label: t('common.settings'),

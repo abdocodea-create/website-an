@@ -45,6 +45,12 @@ func main() {
 		log.Printf("Warning: Failed to clean localhost URLs: %v", err)
 	}
 
+	// Create reports table migration (safe to run multiple times)
+	log.Println("Running reports table migration...")
+	if err := migration.CreateReportsTable(repo.DB()); err != nil {
+		log.Printf("Warning: Failed to create reports table: %v", err)
+	}
+
 	// Services
 	authService := service.NewAuthService(repo, repo, cfg)
 	userService := service.NewUserService(repo, repo)
@@ -73,7 +79,14 @@ func main() {
 	studioHandler := handler.NewStudioHandler(studioService)
 	languageHandler := handler.NewLanguageHandler(languageService)
 	animeHandler := handler.NewAnimeHandler(animeService)
-	episodeHandler := handler.NewEpisodeHandler(episodeService)
+	// Create repositories first
+	commentRepo := repository.NewCommentRepository(repo.DB())
+	notifRepo := repository.NewNotificationRepository(repo.DB())
+	episodeLikeRepo := repository.NewEpisodeLikeRepository(repo.DB())
+	reportRepo := repository.NewReportRepository(repo.DB())
+
+	// Then create handlers that depend on them
+	episodeHandler := handler.NewEpisodeHandler(episodeService, repo, episodeLikeRepo)
 	modelHandler := handler.NewModelHandler(modelService)
 	categoryHandler := handler.NewCategoryHandler(categoryService)
 
@@ -84,10 +97,10 @@ func main() {
 	historyHandler := handler.NewHistoryHandler(historyService)
 
 	// Comments & Notifications Handlers
-	commentRepo := repository.NewCommentRepository(repo.DB())
-	notifRepo := repository.NewNotificationRepository(repo.DB())
 	commentHandler := handler.NewCommentHandler(commentRepo, notifRepo, historyService)
 	notifHandler := handler.NewNotificationHandler(notifRepo)
+	reportHandler := handler.NewReportHandler(reportRepo)
+	analyticsHandler := handler.NewAnalyticsHandler(repo)
 
 	r := gin.Default()
 	r.MaxMultipartMemory = 1024 << 20 // 1GB
@@ -195,6 +208,9 @@ func main() {
 
 			// Public Comments (Read-only)
 			public.GET("/episodes/:id/comments", commentHandler.GetAllByEpisode)
+
+			// Report Issue
+			public.POST("/reports", reportHandler.CreateReport)
 		}
 
 		// --- Protected Routes (Auth Required) ---
@@ -209,6 +225,15 @@ func main() {
 
 			// User Profile Update
 			protected.POST("/user/profile/update", userHandler.UpdateProfile)
+
+			// Dashboard Routes
+			dashboard := protected.Group("/dashboard")
+			{
+				dashboard.GET("/reports", reportHandler.GetAllReports)
+				dashboard.GET("/comments", commentHandler.GetAllComments)
+				dashboard.GET("/analytics/stats", analyticsHandler.GetGlobalStats)
+				dashboard.GET("/analytics/top", analyticsHandler.GetTopContent)
+			}
 
 			// Admin/Protected Routes
 			protected.Group("/users").GET("", userHandler.GetAll).POST("", userHandler.Create).PUT("/:id", userHandler.Update).DELETE("/:id", userHandler.Delete)
@@ -264,6 +289,11 @@ func main() {
 			protected.GET("/notifications", notifHandler.GetUserNotifications)
 			protected.POST("/notifications/:id/read", notifHandler.MarkRead)
 			protected.POST("/notifications/read-all", notifHandler.MarkAllRead)
+
+			// Episode Stats Routes
+			protected.POST("/episodes/:id/view", episodeHandler.TrackView)
+			protected.POST("/episodes/:id/reactions", episodeHandler.ToggleReaction)
+			protected.GET("/episodes/:id/stats", episodeHandler.GetStats)
 		}
 	}
 

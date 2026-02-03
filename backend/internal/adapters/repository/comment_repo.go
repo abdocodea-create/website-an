@@ -49,6 +49,19 @@ func (r *CommentRepository) GetByEpisodeID(episodeID uint) ([]domain.Comment, er
 	return comments, err
 }
 
+// GetAllComments fetches all comments for dashboard
+func (r *CommentRepository) GetAllComments() ([]domain.Comment, error) {
+	var comments []domain.Comment
+	err := r.db.Preload("User").
+		Preload("Episode").
+		Preload("Episode.Anime"). // To show Anime name if needed
+		Preload("Parent").
+		Preload("Parent.User").
+		Order("created_at desc").
+		Find(&comments).Error
+	return comments, err
+}
+
 // Update modifies comment content
 func (r *CommentRepository) Update(comment *domain.Comment) error {
 	return r.db.Save(comment).Error

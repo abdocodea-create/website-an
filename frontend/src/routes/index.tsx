@@ -25,6 +25,7 @@ import AnimeBrowsePage from '@/pages/animes/AnimeBrowsePage';
 import AnimeDetailsPage from '@/pages/animes/AnimeDetailsPage';
 import UserLibraryPage from '@/pages/UserLibraryPage';
 import HistoryPage from '@/pages/HistoryPage';
+import NotificationsPage from '@/pages/NotificationsPage';
 import SearchPage from '@/pages/SearchPage';
 import { LanguageWrapper } from '@/components/LanguageWrapper';
 import { RedirectToDefaultLang } from '@/components/RedirectToDefaultLang';
@@ -34,6 +35,9 @@ import { UserControlPanelLayout } from '@/layouts/UserControlPanelLayout';
 import UserInfoPage from '@/pages/user-dashboard/UserInfoPage';
 import EditProfilePage from '@/pages/user-dashboard/EditProfilePage';
 import UserSettingsPage from '@/pages/user-dashboard/UserSettingsPage';
+import DashboardReportsPage from '@/pages/dashboard/DashboardReportsPage';
+import DashboardAnalyticsPage from '@/pages/dashboard/DashboardAnalyticsPage';
+import DashboardCommentsPage from '@/pages/dashboard/DashboardCommentsPage';
 
 export const router = createBrowserRouter([
     {
@@ -112,6 +116,10 @@ export const router = createBrowserRouter([
                             {
                                 path: 'history',
                                 element: <HistoryPage />,
+                            },
+                            {
+                                path: 'notifications',
+                                element: <NotificationsPage />,
                             },
                             {
                                 path: 'search',
@@ -194,6 +202,18 @@ export const router = createBrowserRouter([
                             {
                                 path: 'episodes',
                                 element: <EpisodesPage />,
+                            },
+                            {
+                                path: 'reports',
+                                element: <DashboardReportsPage />,
+                            },
+                            {
+                                path: 'analytics',
+                                element: <DashboardAnalyticsPage />,
+                            },
+                            {
+                                path: 'comments',
+                                element: <DashboardCommentsPage />,
                             },
                             {
                                 path: 'settings',

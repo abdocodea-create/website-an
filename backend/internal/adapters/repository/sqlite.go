@@ -3,6 +3,7 @@ package repository
 import (
 	"backend/internal/core/domain"
 	"backend/internal/core/port"
+	"context"
 	"fmt"
 
 	"gorm.io/driver/sqlite"
@@ -40,7 +41,7 @@ func NewSQLiteRepository(dbUrl string) (*SQLiteRepository, error) {
 		&domain.User{}, &domain.Role{}, &domain.Permission{},
 		&domain.Model{}, &domain.Category{}, &domain.Type{},
 		&domain.Season{}, &domain.Studio{}, &domain.Language{},
-		&domain.Anime{}, &domain.Episode{}, &domain.EpisodeServer{},
+		&domain.Anime{}, &domain.Episode{}, &domain.EpisodeServer{}, &domain.EpisodeLike{},
 		&domain.Comment{}, &domain.CommentLike{}, &domain.Notification{},
 		&domain.WatchLater{}, &domain.History{},
 	)
@@ -406,4 +407,85 @@ func (r *SQLiteRepository) SearchAnimes(query string) ([]domain.Anime, error) {
 		Find(&animes).Error
 
 	return animes, err
+}
+
+func (r *SQLiteRepository) GetGlobalStats(ctx context.Context) (map[string]int64, error) {
+	var stats = make(map[string]int64)
+
+	var totalViews int64
+	// Handle NULL sum
+	if err := r.db.WithContext(ctx).Model(&domain.Episode{}).Select("COALESCE(SUM(views_count), 0)").Scan(&totalViews).Error; err != nil {
+		return nil, err
+	}
+	stats["total_views"] = totalViews
+
+	var totalAnimes int64
+	if err := r.db.WithContext(ctx).Model(&domain.Anime{}).Count(&totalAnimes).Error; err != nil {
+		return nil, err
+	}
+	stats["total_animes"] = totalAnimes
+
+	var totalEpisodes int64
+	if err := r.db.WithContext(ctx).Model(&domain.Episode{}).Count(&totalEpisodes).Error; err != nil {
+		return nil, err
+	}
+	stats["total_episodes"] = totalEpisodes
+
+	var totalReports int64
+	if err := r.db.WithContext(ctx).Model(&domain.Report{}).Count(&totalReports).Error; err != nil {
+		return nil, err
+	}
+	stats["total_reports"] = totalReports
+
+	var totalUsers int64
+	if err := r.db.WithContext(ctx).Model(&domain.User{}).Count(&totalUsers).Error; err != nil {
+		return nil, err
+	}
+	stats["total_users"] = totalUsers
+
+	return stats, nil
+}
+
+func (r *SQLiteRepository) GetTopEpisodes(ctx context.Context, limit int) ([]domain.Episode, error) {
+	var episodes []domain.Episode
+	err := r.db.WithContext(ctx).Preload("Anime").Order("views_count desc").Limit(limit).Find(&episodes).Error
+	return episodes, err
+}
+
+func (r *SQLiteRepository) GetTopAnimes(ctx context.Context, limit int) ([]map[string]interface{}, error) {
+	var results []map[string]interface{}
+
+	// Complex query to sum episode views per anime
+	// Returning map so we don't mess with domain struct
+	rows, err := r.db.WithContext(ctx).Table("animes").
+		Select("animes.id, animes.title, animes.title_en, animes.image, animes.cover, COALESCE(SUM(episodes.views_count), 0) as total_views").
+		Joins("LEFT JOIN episodes ON episodes.anime_id = animes.id").
+		Group("animes.id").
+		Order("total_views desc").
+		Limit(limit).
+		Rows()
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id uint
+		var title, titleEn, image, cover string
+		var totalViews int64
+		if err := rows.Scan(&id, &title, &titleEn, &image, &cover, &totalViews); err != nil {
+			continue
+		}
+		results = append(results, map[string]interface{}{
+			"id":          id,
+			"title":       title,
+			"title_en":    titleEn,
+			"image":       image,
+			"cover":       cover,
+			"total_views": totalViews,
+		})
+	}
+
+	return results, nil
 }

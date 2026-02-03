@@ -111,3 +111,12 @@
     scrollbar-color: hsl(var(--border)) hsl(var(--background));
   }
 }
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-5px) scale(1.1); }
+}
+
+.animate-bounce {
+  animation: bounce 0.4s ease-in-out;
+}

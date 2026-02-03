@@ -56,8 +56,13 @@ export const useWatchLaterStore = create<WatchLaterState>((set, get) => ({
     isSaved: (animeId, episodeId) => {
         const { items } = get();
         return items.some(item => {
-            if (animeId && item.anime_id === animeId) return true;
-            if (episodeId && item.episode_id === episodeId) return true;
+            if (episodeId) {
+                return Number(item.episode_id) === Number(episodeId);
+            }
+            if (animeId) {
+                // If checking for anime, ensure item is for anime (no episode_id)
+                return Number(item.anime_id) === Number(animeId) && !item.episode_id;
+            }
             return false;
         });
     }

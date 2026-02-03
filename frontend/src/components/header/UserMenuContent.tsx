@@ -259,7 +259,7 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
             {/* Menu Group 3 */}
             <DropdownMenuGroup className="py-1">
                 <DropdownMenuItem
-                    onClick={() => handleNavigation('/dashboard')}
+                    onClick={() => handleNavigation('/notifications')}
                     className="focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-2.5 gap-4 group"
                 >
                     <div className="flex items-center gap-2">

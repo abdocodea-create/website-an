@@ -2,6 +2,8 @@ package repository
 
 import (
 	"backend/internal/core/domain"
+
+	"gorm.io/gorm"
 )
 
 type EpisodeRepository interface {
@@ -68,4 +70,11 @@ func (r *SQLiteRepository) SearchEpisodes(query string) ([]domain.Episode, error
 		Find(&episodes).Error
 
 	return episodes, err
+}
+
+// IncrementEpisodeViews increments the views count for an episode
+func (r *SQLiteRepository) IncrementEpisodeViews(episodeID uint) error {
+	return r.db.Model(&domain.Episode{}).
+		Where("id = ?", episodeID).
+		UpdateColumn("views_count", gorm.Expr("views_count + 1")).Error
 }

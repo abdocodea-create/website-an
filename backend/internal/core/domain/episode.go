@@ -30,7 +30,17 @@ type Episode struct {
 	IsPublished   bool            `json:"is_published"`
 	Language      string          `json:"language"`
 	Rating        float64         `json:"rating"`
+	ViewsCount    int             `json:"views_count" gorm:"default:0"`
+	LikesCount    int             `json:"likes_count" gorm:"default:0"`
+	DislikesCount int             `json:"dislikes_count" gorm:"default:0"`
 	Servers       []EpisodeServer `json:"servers" gorm:"foreignKey:EpisodeID"`
+}
+
+// EpisodeLike represents a user's like/dislike reaction to an episode
+type EpisodeLike struct {
+	UserID    uint `json:"user_id" gorm:"primaryKey"`
+	EpisodeID uint `json:"episode_id" gorm:"primaryKey"`
+	IsLike    bool `json:"is_like"` // true = like, false = dislike
 }
 
 type EpisodeServer struct {
