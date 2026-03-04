@@ -35,6 +35,7 @@ import Footer from '@/components/common/Footer';
 import { ShareModal } from '@/components/episodes/ShareModal';
 import { MobileCommentsModal } from '@/components/comments/MobileCommentsModal';
 import { trackEpisodeView, toggleEpisodeReaction, getEpisodeStats, EpisodeStats } from '@/lib/episode-stats-api';
+import { NewsTicker } from '@/components/common/NewsTicker';
 
 // Helper for image URLs
 const BASE_URL = '';
@@ -575,9 +576,7 @@ export default function WatchPage() {
             </Helmet>
 
             {isLoading ? (
-                <div className="min-h-screen flex flex-col">
-                    <CrunchyrollSkeleton variant="full-screen" className="relative top-0 w-full h-screen" />
-                </div>
+                <CrunchyrollSkeleton variant="full-screen" />
             ) : !!episodeError || !anime || !currentEpisode ? (
                 <div className="min-h-screen flex flex-col items-center justify-center text-white p-4">
                     <h1 className="text-4xl font-bold mb-4">{lang === 'ar' ? 'عفواً، لم يتم العثور على الحلقة' : 'Oops, Episode Not Found'}</h1>
@@ -586,7 +585,8 @@ export default function WatchPage() {
                     </Link>
                 </div>
             ) : (
-                <div className="animate-fade-in relative z-10 w-full pt-4 md:pt-8">
+                <div className="animate-fade-in relative z-10 w-full pt-0">
+                    <NewsTicker />
                     {/* Video Player - Outside container on mobile for edge-to-edge, inside on desktop */}
                     <div className="block md:hidden w-full aspect-video bg-black overflow-hidden relative mb-6">
                         <div className="w-full h-full overflow-hidden relative shadow-lg">

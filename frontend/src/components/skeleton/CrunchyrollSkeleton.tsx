@@ -19,7 +19,7 @@ export default function CrunchyrollSkeleton({
     gridClassName
 }: CrunchyrollSkeletonProps) {
     if (variant === 'full-screen') {
-        return <div className={cn("shimmer-wrapper fixed top-16 inset-x-0 bottom-0 z-40 w-screen h-[calc(100vh-4rem)]", className)}></div>;
+        return <div className={cn("shimmer-wrapper fixed top-[60px] inset-x-0 bottom-0 z-40 w-screen h-[calc(100vh-60px)]", className)}></div>;
     }
 
     if (variant === 'spinner') {

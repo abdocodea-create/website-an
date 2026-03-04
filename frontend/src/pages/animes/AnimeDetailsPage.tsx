@@ -330,7 +330,6 @@ export default function AnimeDetailsPage() {
                 </script>
             </Helmet>
 
-            <NewsTicker />
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-visible max-w-[1400px] mx-auto w-full transition-all duration-300">
                 {/* Main Content - Full Width */}
@@ -486,7 +485,7 @@ export default function AnimeDetailsPage() {
                                 </div>
 
                                 {/* Numeric Filter Bar */}
-                                <div className="w-full border-b border-gray-200 dark:border-neutral-800 py-4 flex justify-center sticky top-[105px] z-40 bg-white/95 dark:bg-black/95 backdrop-blur-md mb-8">
+                                <div className="w-full border-b border-gray-200 dark:border-neutral-800 py-4 flex justify-center sticky top-[60px] z-40 bg-white/95 dark:bg-black/95 backdrop-blur-md mb-8">
                                     <div className="flex flex-wrap items-center justify-center gap-3 text-sm md:text-base font-bold text-gray-500 dark:text-gray-500">
                                         <button
                                             onClick={() => setSelectedNumber(null)}

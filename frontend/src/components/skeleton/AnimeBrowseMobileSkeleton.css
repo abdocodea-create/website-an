@@ -1,0 +1,104 @@
+/* Base Shimmer Styles matching CrunchyrollSkeleton */
+.browse-mobile-skeleton {
+    width: 100%;
+}
+
+.shimmer {
+    background-color: transparent;
+    position: relative;
+    overflow: hidden;
+    border-radius: 0; /* Sharp corners like the platform */
+}
+
+.dark .shimmer {
+    background-color: #000000;
+}
+
+.shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg,
+            rgba(255, 255, 255, 0) 0%,
+            rgba(255, 255, 255, 0) 35%,
+            rgba(128, 128, 128, 0.1) 50%,
+            rgba(255, 255, 255, 0) 65%,
+            rgba(255, 255, 255, 0) 100%);
+    background-size: 300% 300%;
+    animation: diagShimmer 0.6s infinite linear;
+}
+
+.dark .shimmer::after {
+    background: linear-gradient(135deg,
+            rgba(255, 255, 255, 0) 0%,
+            rgba(255, 255, 255, 0) 35%,
+            rgba(255, 255, 255, 0.15) 50%,
+            rgba(255, 255, 255, 0) 65%,
+            rgba(255, 255, 255, 0) 100%);
+}
+
+@keyframes diagShimmer {
+    0% { background-position: 100% 100%; }
+    100% { background-position: 0% 0%; }
+}
+
+/* Grid Mode - for Animes on Mobile */
+.browse-mobile-skeleton.grid-mode {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem; /* Match gap-2 */
+}
+
+.browse-mobile-card.grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.browse-mobile-card.grid .poster {
+    width: 100%;
+    aspect-ratio: 2 / 3;
+}
+
+/* List Mode - for Episodes and Browse All */
+.browse-mobile-skeleton.list-mode {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.browse-mobile-card.list {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.75rem; /* Match gap-3 */
+}
+
+.browse-mobile-card.list .poster.episode {
+    width: 140px;
+    aspect-ratio: 16 / 9;
+    flex-shrink: 0;
+}
+
+.browse-mobile-card.list .poster.browse-all {
+    width: 170px;
+    height: 110px;
+    flex-shrink: 0;
+}
+
+.browse-mobile-card.list .info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Text Lines */
+.shimmer.line {
+    height: 12px;
+    width: 100%;
+}
+
+.shimmer.line.short {
+    width: 60%;
+}

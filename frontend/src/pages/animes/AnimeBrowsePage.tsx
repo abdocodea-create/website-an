@@ -9,6 +9,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import AnimeHoverCard from "@/components/AnimeHoverCard";
 import CrunchyrollSkeleton from "@/components/skeleton/CrunchyrollSkeleton";
+import AnimeBrowseMobileSkeleton from "@/components/skeleton/AnimeBrowseMobileSkeleton";
 import SpinnerImage from "@/components/ui/SpinnerImage";
 import CentralSpinner from "@/components/ui/CentralSpinner";
 import SearchModal from "@/components/modals/SearchModal";
@@ -84,36 +85,38 @@ export default function AnimeBrowsePage() {
                 <title>{seoTitle}</title>
             </Helmet>
 
-            <NewsTicker />
-
-            {/* Modals */}
-            <SearchModal isOpen={isSearchModalOpen} onClose={() => setIsSearchModalOpen(false)} />
-            <FilterModal isOpen={isFilterModalOpen} onClose={() => setIsFilterModalOpen(false)} />
-            <SearchAnimeModal isOpen={isSearchAnimeModalOpen} onClose={() => setIsSearchAnimeModalOpen(false)} />
-            <FilterAnimeModal isOpen={isFilterAnimeModalOpen} onClose={() => setIsFilterAnimeModalOpen(false)} />
-
             {isLoading ? (
                 <CentralSpinner className="min-h-screen" />
             ) : (
                 <>
+                    <NewsTicker />
+
+                    {/* Modals */}
+                    <SearchModal isOpen={isSearchModalOpen} onClose={() => setIsSearchModalOpen(false)} />
+                    <FilterModal isOpen={isFilterModalOpen} onClose={() => setIsFilterModalOpen(false)} />
+                    <SearchAnimeModal isOpen={isSearchAnimeModalOpen} onClose={() => setIsSearchAnimeModalOpen(false)} />
+                    <FilterAnimeModal isOpen={isFilterAnimeModalOpen} onClose={() => setIsFilterAnimeModalOpen(false)} />
+
                     {/* Main Layout - Centered with Wide Margins */}
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-visible max-w-[1200px] mx-auto transition-all duration-300">
                         {/* Main Content - Full Width */}
                         <div className="px-2 sm:px-6 md:px-8 pt-3 pb-8 lg:pt-5 transition-all duration-300 col-span-1 lg:col-span-12">
-                            {/* Latest Episodes Section */}
-                            <Section
-                                title={i18n.language === 'ar' ? 'أحدث الحلقات' : 'Latest Episodes'}
+                            {/* Latest Episodes Section - List Design */}
+                            <BrowseSection
+                                title={i18n.language === 'ar' ? 'تصفح انميات الجديدة' : 'Browse New Animes'}
                                 endpoint="/episodes/latest"
-                                type="episode"
-                                limit={15}
-                                showActionButtons={true}
-                                onSearchClick={() => setIsSearchModalOpen(true)}
-                                onFilterClick={() => setIsFilterModalOpen(true)}
                                 lang={i18n.language}
+                                isRtl={isRtl}
+                                isEpisodes={true}
                             />
 
                             {/* Browse All Section */}
-                            <BrowseAllSection lang={i18n.language} isRtl={isRtl} />
+                            <BrowseSection
+                                title={i18n.language === 'ar' ? 'تصفح كل الأنميات' : 'Browse All Animes'}
+                                endpoint="/animes"
+                                lang={i18n.language}
+                                isRtl={isRtl}
+                            />
 
                             {/* Latest Animes Section */}
                             <Section
@@ -218,6 +221,11 @@ const Section = ({ title, endpoint, type, limit, showSearch, search, setSearch, 
 
     const canLoadMore = (type === 'episode' || type === 'anime') && items && items.length >= displayLimit;
 
+    const isEpisode = type === 'episode';
+    const gridCols = isEpisode
+        ? "flex flex-col gap-4 md:grid md:grid-cols-2 lg:grid-cols-5"
+        : "grid grid-cols-2 gap-2 md:gap-6 md:grid-cols-3 lg:grid-cols-6";
+
     return (
         <section className="mb-10" ref={elementRef as React.RefObject<HTMLDivElement>}>
             <div className="flex items-center justify-between mb-4">
@@ -267,20 +275,22 @@ const Section = ({ title, endpoint, type, limit, showSearch, search, setSearch, 
             </div>
 
             {isLoading ? (
-                <CrunchyrollSkeleton
-                    count={limit}
-                    isEpisode={type === 'episode'}
-                    layout={window.innerWidth < 768 ? 'list' : 'grid'}
-                    gridClassName={type === 'episode' ? "flex flex-col gap-4 md:grid md:grid-cols-2 lg:grid-cols-5" : "grid grid-cols-2 gap-2 md:gap-6 md:grid-cols-3 lg:grid-cols-5"}
-                />
+                window.innerWidth < 768 ? (
+                    <AnimeBrowseMobileSkeleton
+                        type={type === 'episode' ? 'episode' : 'anime'}
+                        count={limit}
+                    />
+                ) : (
+                    <CrunchyrollSkeleton
+                        count={limit}
+                        isEpisode={type === 'episode'}
+                        layout="grid"
+                        gridClassName={gridCols}
+                    />
+                )
             ) : items?.length > 0 ? (
                 <>
-                    <div className={`
-                        ${type === 'episode'
-                            ? 'flex flex-col gap-4 md:grid md:grid-cols-2 lg:grid-cols-5'
-                            : 'grid grid-cols-2 gap-2 md:gap-6 md:grid-cols-3 lg:grid-cols-5'} 
-                        relative z-0
-                    `}>
+                    <div className={cn(gridCols, "relative z-0")}>
                         {items.map((item: any, index: number) => (
                             <CardItem
                                 key={item.id}
@@ -325,66 +335,9 @@ const Section = ({ title, endpoint, type, limit, showSearch, search, setSearch, 
 
 import { slugify } from "@/utils/slug";
 
-// ─── Browse All Section ───────────────────────────────────────────────────────
+// ─── Component: Browse Section ──────────────────────────────────────────────────
 
-const getValidImageUrl = (path: string) => {
-    if (!path) return '';
-    if (path.startsWith('http')) return path;
-    const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    return `${cleanPath}`;
-};
-
-function ListItem({ anime, lang, isRtl }: { anime: any; lang: string; isRtl: boolean }) {
-    const title = lang === 'ar' ? (anime.title || anime.title_en) : (anime.title_en || anime.title);
-    const description = lang === 'ar'
-        ? (anime.description || anime.series?.description || 'لا يوجد وصف متاح')
-        : (anime.description_en || anime.series?.description_en || 'No description available');
-    const image = anime.cover || anime.banner;
-
-    return (
-        <Link
-            to={`/${lang}/animes/${anime.id}`}
-            className="group flex flex-row gap-3 md:gap-6 bg-transparent hover:bg-gray-50 dark:hover:bg-neutral-900/40 transition-colors duration-200 relative z-10"
-        >
-            <div className="w-[170px] md:w-[230px] h-[110px] md:h-[125px] flex-shrink-0 relative overflow-hidden">
-                <img
-                    src={getValidImageUrl(image)}
-                    alt={title}
-                    className="w-full h-full object-cover transition-transform duration-500"
-                    loading="lazy"
-                />
-            </div>
-            <div className="flex-1 flex flex-col items-start py-0 md:py-2 text-right w-full min-w-0">
-                <h3 className="text-sm md:text-lg font-bold text-gray-900 dark:text-white mb-1 md:mb-3 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors leading-tight line-clamp-2 md:line-clamp-1">
-                    {title}
-                </h3>
-                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-2 md:line-clamp-3 mb-2 font-normal">
-                    {description}
-                </p>
-                <div className="mt-auto flex items-center gap-2 md:gap-4 w-full pt-1 md:pt-3">
-                    <span className="text-[10px] md:text-xs font-bold text-black dark:text-white">
-                        {isRtl ? 'مترجم' : 'Translated'}
-                    </span>
-                    {anime.rating && (
-                        <div className="flex items-center gap-1 text-[10px] md:text-xs text-gray-500">
-                            <span className="text-yellow-500">★</span>
-                            <span>{anime.rating}</span>
-                        </div>
-                    )}
-                    <div className="hidden md:block flex-1 text-left rtl:text-left ltr:text-right">
-                        <span className="text-xs text-gray-400 font-mono">
-                            {typeof anime.season === 'string' ? anime.season : (anime.season?.name || 'SEASON 1')}
-                        </span>
-                    </div>
-                </div>
-            </div>
-        </Link>
-    );
-}
-
-const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-
-function BrowseAllSection({ lang, isRtl }: { lang: string; isRtl: boolean }) {
+function BrowseSection({ title, endpoint, lang, isRtl, isEpisodes }: { title: string; endpoint: string; lang: string; isRtl: boolean; isEpisodes?: boolean }) {
     const [selectedType, setSelectedType] = useState<'All' | 'TV' | 'Movie'>('All');
     const [selectedLetter, setSelectedLetter] = useState<string | null>(null);
     const [searchQuery] = useState('');
@@ -409,7 +362,7 @@ function BrowseAllSection({ lang, isRtl }: { lang: string; isRtl: boolean }) {
         isFetchingNextPage,
         isLoading,
     } = useInfiniteQuery({
-        queryKey: ['home-browse-all', selectedType, selectedLetter, searchQuery],
+        queryKey: ['browse-section', endpoint, selectedType, selectedLetter, searchQuery],
         queryFn: async ({ pageParam = 1 }) => {
             const params: any = {
                 page: pageParam,
@@ -418,7 +371,7 @@ function BrowseAllSection({ lang, isRtl }: { lang: string; isRtl: boolean }) {
                 search: searchQuery,
                 type: selectedType === 'All' ? '' : selectedType,
             };
-            const response = await api.get('/animes', { params });
+            const response = await api.get(endpoint, { params });
             return response.data;
         },
         initialPageParam: 1,
@@ -427,12 +380,13 @@ function BrowseAllSection({ lang, isRtl }: { lang: string; isRtl: boolean }) {
         staleTime: 5 * 60 * 1000,
     });
 
-    const allAnimes = useMemo(() => data?.pages.flat() || [], [data]);
+    const allItems = useMemo(() => data?.pages.flat() || [], [data]);
 
-    const lettersDisplay = isRtl ? [...ALPHABET].reverse() : ALPHABET;
+    const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+    const lettersDisplay = ALPHABET;
 
     return (
-        <section className="mb-10">
+        <section className="mb-14">
             {/* Header */}
             <div className="flex flex-col-reverse md:flex-row items-center justify-between gap-4 mb-6">
                 <div className="flex items-center gap-6 text-base font-bold">
@@ -446,7 +400,7 @@ function BrowseAllSection({ lang, isRtl }: { lang: string; isRtl: boolean }) {
                     </button>
                 </div>
                 <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
-                    {isRtl ? 'تصفح كل الأنميات' : 'Browse All Animes'}
+                    {title}
                 </h2>
             </div>
 
@@ -471,31 +425,26 @@ function BrowseAllSection({ lang, isRtl }: { lang: string; isRtl: boolean }) {
                 </div>
             </div>
 
-            {/* Anime List */}
+            {/* Content List */}
             <div className="flex flex-col gap-6">
                 {isLoading ? (
-                    Array.from({ length: 5 }).map((_, i) => (
-                        <div key={i} className="flex flex-row gap-4 animate-pulse">
-                            <div className="w-[170px] md:w-[230px] h-[110px] md:h-[125px] bg-gray-200 dark:bg-neutral-800 flex-shrink-0" />
-                            <div className="flex-1 space-y-3 py-2">
-                                <div className="h-5 bg-gray-200 dark:bg-neutral-800 w-1/3" />
-                                <div className="h-4 bg-gray-200 dark:bg-neutral-800 w-full" />
-                                <div className="h-4 bg-gray-200 dark:bg-neutral-800 w-3/4" />
-                            </div>
-                        </div>
-                    ))
-                ) : allAnimes.length > 0 ? (
-                    allAnimes.map((anime: any, index: number) => (
+                    window.innerWidth < 768 ? (
+                        <AnimeBrowseMobileSkeleton type="browse-all" count={5} />
+                    ) : (
+                        <CrunchyrollSkeleton count={5} layout="list" className="!bg-transparent" />
+                    )
+                ) : allItems.length > 0 ? (
+                    allItems.map((item: any, index: number) => (
                         <div
-                            key={anime.id}
+                            key={item.id}
                             className="relative group"
                             onMouseEnter={() => handleMouseEnter(index)}
                             onMouseLeave={handleMouseLeave}
                         >
-                            <ListItem anime={anime} lang={lang} isRtl={isRtl} />
+                            <ListItem item={item} lang={lang} isRtl={isRtl} isEpisode={isEpisodes} />
                             {hoveredCardIndex === index && (
-                                <div className="absolute top-0 z-20 h-auto min-h-full left-0 right-0 w-full">
-                                    <AnimeListHoverCard data={anime} lang={lang} className="h-full w-full" />
+                                <div className="absolute top-0 z-20 h-auto min-h-full left-0 right-0 w-full pointer-events-none md:pointer-events-auto">
+                                    <AnimeListHoverCard data={isEpisodes ? (item.anime || item) : item} lang={lang} className="h-full w-full" />
                                 </div>
                             )}
                         </div>
@@ -513,7 +462,7 @@ function BrowseAllSection({ lang, isRtl }: { lang: string; isRtl: boolean }) {
                     <button
                         onClick={() => fetchNextPage()}
                         disabled={isFetchingNextPage}
-                        className="px-6 py-2 bg-black dark:bg-white text-white dark:text-black font-bold hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        className="px-6 py-2 bg-black dark:bg-white text-white dark:text-black font-bold hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 rounded-full"
                     >
                         {isFetchingNextPage ? (
                             <>
@@ -527,6 +476,79 @@ function BrowseAllSection({ lang, isRtl }: { lang: string; isRtl: boolean }) {
                 </div>
             )}
         </section>
+    );
+}
+
+// ─── List Item Design ──────────────────────────────────────────────────────────
+
+const getValidImageUrl = (path: string) => {
+    if (!path) return '';
+    if (path.startsWith('http')) return path;
+    const cleanPath = path.startsWith('/') ? path : `/${path}`;
+    return `${cleanPath}`;
+};
+
+function ListItem({ item, lang, isRtl, isEpisode }: { item: any; lang: string; isRtl: boolean; isEpisode?: boolean }) {
+    const anime = isEpisode ? (item.anime || item.series) : item;
+
+    if (!anime) return null;
+
+    const title = lang === 'ar' ? (anime.title || anime.title_en) : (anime.title_en || anime.title);
+    const description = lang === 'ar'
+        ? (anime.description || anime.series?.description || 'لا يوجد وصف متاح')
+        : (anime.description_en || anime.series?.description_en || 'No description available');
+
+    const image = isEpisode
+        ? (item.thumbnail || item.banner || anime.cover)
+        : (anime.cover || anime.banner);
+
+    const episodeNum = isEpisode ? item.episode_number : null;
+
+    return (
+        <Link
+            to={isEpisode
+                ? `/${lang}/watch/${anime.id}/${episodeNum}/${slugify(title)}`
+                : `/${lang}/animes/${anime.id}/${slugify(title)}`}
+            className="group flex flex-row gap-3 md:gap-6 bg-transparent hover:bg-gray-50 dark:hover:bg-neutral-900/40 transition-colors duration-200 relative z-10"
+        >
+            <div className="w-[170px] md:w-[230px] h-[110px] md:h-[125px] flex-shrink-0 relative overflow-hidden">
+                <img
+                    src={getValidImageUrl(image)}
+                    alt={title}
+                    className="w-full h-full object-cover transition-transform duration-500"
+                    loading="lazy"
+                />
+                {isEpisode && (
+                    <div className="absolute bottom-1 right-1 bg-black/80 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                        {isRtl ? `حلقة ${episodeNum}` : `Ep ${episodeNum}`}
+                    </div>
+                )}
+            </div>
+            <div className="flex-1 flex flex-col items-start py-0 md:py-2 text-right w-full min-w-0 px-2 lg:px-0">
+                <h3 className="text-sm md:text-lg font-bold text-gray-900 dark:text-white mb-1 md:mb-3 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors leading-tight line-clamp-2 md:line-clamp-1">
+                    {title} {isEpisode && <span className="text-gray-500 font-medium">({isRtl ? `الحلقة ${episodeNum}` : `Episode ${episodeNum}`})</span>}
+                </h3>
+                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-2 md:line-clamp-3 mb-2 font-normal">
+                    {description}
+                </p>
+                <div className="mt-auto flex items-center gap-2 md:gap-4 w-full pt-1 md:pt-3">
+                    <span className="text-[10px] md:text-xs font-bold text-black dark:text-white">
+                        {isRtl ? 'مترجم' : 'Translated'}
+                    </span>
+                    {(anime.rating || item.rating) && (
+                        <div className="flex items-center gap-1 text-[10px] md:text-xs text-gray-500">
+                            <span className="text-yellow-500">★</span>
+                            <span>{anime.rating || item.rating}</span>
+                        </div>
+                    )}
+                    <div className="hidden md:block flex-1 text-left rtl:text-left ltr:text-right">
+                        <span className="text-xs text-gray-400 font-mono">
+                            {typeof anime.season === 'string' ? anime.season : (anime.season?.name || 'SEASON 1')}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </Link>
     );
 }
 
@@ -632,7 +654,7 @@ const CardItem = ({ item, index, type, lang, isHovered, onMouseEnter, onMouseLea
 
             {/* Hover Card Component - Covers full card with gradient */}
             {isHovered && (
-                <div className="absolute inset-0 z-50">
+                <div className="absolute inset-0 z-50 pointer-events-none md:pointer-events-auto">
                     <AnimeHoverCard
                         data={item}
                         lang={lang}

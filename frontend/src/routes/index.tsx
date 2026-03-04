@@ -4,6 +4,7 @@ import { AuthLayout } from '@/layouts/AuthLayout';
 import { DashboardLayout } from '@/layouts/DashboardLayout';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import LoginPage from '@/pages/auth/LoginPage';
+import RegisterPage from '@/pages/auth/RegisterPage';
 import DashboardPage from '@/pages/dashboard/DashboardPage';
 import UsersPage from '@/pages/users/UsersPage';
 import RolesPage from '@/pages/roles/RolesPage';
@@ -96,6 +97,10 @@ export const routes = [
                     {
                         path: 'login',
                         element: <LoginPage />,
+                    },
+                    {
+                        path: 'register',
+                        element: <RegisterPage />,
                     },
                 ],
             },
