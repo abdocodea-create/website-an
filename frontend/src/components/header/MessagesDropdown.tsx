@@ -9,6 +9,7 @@ import { useAuthStore } from '@/stores/auth-store';
 import { useSocketStore } from '@/stores/socket-store';
 import { renderEmojiContent } from '@/utils/render-content';
 import api from '@/lib/api';
+import { getImageUrl } from '@/utils/image-utils';
 
 interface Message {
     id: number;
@@ -31,7 +32,11 @@ interface Conversation {
     unread_count?: number;
 }
 
-export const MessagesDropdown: React.FC = () => {
+interface MessagesDropdownProps {
+    onOpenChange?: (open: boolean) => void;
+}
+
+export const MessagesDropdown: React.FC<MessagesDropdownProps> = ({ onOpenChange }) => {
     const { i18n } = useTranslation();
     const navigate = useNavigate();
     const { user: currentUser } = useAuthStore();
@@ -142,9 +147,7 @@ export const MessagesDropdown: React.FC = () => {
     };
 
     const getAvatarUrl = (path?: string) => {
-        if (!path) return '';
-        if (path.startsWith('http')) return path;
-        return path.startsWith('/') ? path : `/${path}`;
+        return getImageUrl(path);
     };
 
     const getLocale = () => isRtl ? ar : enUS;
@@ -155,7 +158,13 @@ export const MessagesDropdown: React.FC = () => {
         <div className="relative" ref={dropdownRef}>
             {/* Trigger Button */}
             <button
-                onClick={() => setIsOpen(!isOpen)}
+                onClick={() => {
+                    const nextState = !isOpen;
+                    setIsOpen(nextState);
+                    if (nextState && onOpenChange) {
+                        onOpenChange(true);
+                    }
+                }}
                 className={cn(
                     "relative p-2.5 transition-all duration-300 rounded-full group",
                     isOpen

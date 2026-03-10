@@ -23,7 +23,7 @@ func (r *CommentRepository) Create(comment *domain.Comment) error {
 // GetByID fetches a comment by ID
 func (r *CommentRepository) GetByID(id uint) (*domain.Comment, error) {
 	var comment domain.Comment
-	if err := r.db.Joins("User").Preload("Episode").Preload("Episode.Anime").First(&comment, id).Error; err != nil {
+	if err := r.db.Preload("User").Preload("Episode").Preload("Episode.Anime").First(&comment, id).Error; err != nil {
 		return nil, err
 	}
 	return &comment, nil
@@ -31,10 +31,13 @@ func (r *CommentRepository) GetByID(id uint) (*domain.Comment, error) {
 
 func (r *CommentRepository) GetByEpisodeID(episodeID uint) ([]domain.Comment, error) {
 	var allComments []domain.Comment
-	// Fetch all comments for this episode at once to build tree in memory
+	// Fetch all comments for this episode.
+	// We sort by CreatedAt ASC generally for building the tree easily,
+	// but the UI might expect top-level comments to be DESC.
+	// To satisfy both: we sort by CreatedAt ASC here, then we reverse the rootComments at the end.
 	err := r.db.Preload("User").
 		Where("episode_id = ?", episodeID).
-		Order("created_at desc").
+		Order("created_at asc").
 		Find(&allComments).Error
 	if err != nil {
 		return nil, err
@@ -46,25 +49,20 @@ func (r *CommentRepository) GetByEpisodeID(episodeID uint) ([]domain.Comment, er
 		commentMap[allComments[i].ID] = &allComments[i]
 	}
 
-	var rootComments []domain.Comment
 	for i := range allComments {
 		comment := &allComments[i]
-		if comment.ParentID == nil || *comment.ParentID == 0 {
-			// Top-level comment
-			rootComments = append(rootComments, *comment)
-		} else {
-			// Nested reply
+		if comment.ParentID != nil && *comment.ParentID != 0 {
+			// Nested reply - goes into children list (which will be ASC because our query was ASC)
 			if parent, exists := commentMap[*comment.ParentID]; exists {
 				parent.Children = append(parent.Children, *comment)
 			}
 		}
 	}
 
-	// Note: rootComments contains copies. To ensure Children are correctly linked,
-	// we should either use pointers everywhere or re-assign from map.
-	// Let's refine rootComments to use the updated map entries.
+	// Now extract roots and reverse them if we want newest-first for main thread
 	var finalRoots []domain.Comment
-	for i := range allComments {
+	// Iterate backwards to get newest-first for top-level
+	for i := len(allComments) - 1; i >= 0; i-- {
 		c := &allComments[i]
 		if c.ParentID == nil || *c.ParentID == 0 {
 			finalRoots = append(finalRoots, *commentMap[c.ID])

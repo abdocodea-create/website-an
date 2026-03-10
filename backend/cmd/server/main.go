@@ -11,9 +11,11 @@ import (
 	"backend/internal/migration"
 	"backend/internal/seeder"
 	"log"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/gin-contrib/cors"
@@ -40,6 +42,10 @@ func main() {
 	if isNewDB {
 		log.Println("New database detected. Running auto-seeding...")
 		seeder.SeedAll(repo.DB())
+	} else {
+		// Ensure countries are seeded even if DB already existed
+		log.Println("Seeding countries for existing database...")
+		seeder.SeedCountries(repo.DB())
 	}
 
 	// ALWAYS run localhost cleanup migration (safe to run multiple times)
@@ -78,6 +84,8 @@ func main() {
 	modelService := service.NewModelService(repo)
 	categoryService := service.NewCategoryService(repo)
 	quickNewsService := service.NewQuickNewsService(repo)
+	countryService := service.NewCountryService(repo)
+	serverService := service.NewServerService(repo)
 
 	exportService := service.NewExportService(cfg.BlenderPath, cfg.ExportDir, cfg.ExportTimeout)
 	watchLaterService := service.NewWatchLaterService(repo)
@@ -124,6 +132,8 @@ func main() {
 	analyticsHandler := handler.NewAnalyticsHandler(repo)
 	settingsHandler := handler.NewSettingsHandler(repo.DB())
 	quickNewsHandler := handler.NewQuickNewsHandler(quickNewsService)
+	countryHandler := handler.NewCountryHandler(countryService)
+	serverHandler := handler.NewServerHandler(serverService)
 	sitemapHandler := handler.NewSitemapHandler(repo.DB())
 
 	messageService := service.NewMessageService(messageRepo, notifRepo, repo, wsHub)
@@ -163,39 +173,76 @@ func main() {
 		}))
 	*/
 
-	// Helper to resolve and log static paths
-	resolve := func(path string) string {
-		abs, err := filepath.Abs(path)
-		if err != nil {
-			log.Printf("Warning: could not resolve path %s: %v", path, err)
-			return path
-		}
-		if _, err := os.Stat(abs); os.IsNotExist(err) {
-			log.Printf("Warning: Static path does not exist: %s", abs)
-		} else {
-			log.Printf("Static Path Resolved: %s -> %s", path, abs)
-		}
-		return abs
+	// Register SVG mime type explicitly just in case Windows registry is broken
+	mime.AddExtensionType(".svg", "image/svg+xml")
+
+	// Determine backend root dir (where `uploads` lives).
+	// Since we know this file is `backend/cmd/server/main.go`, we can use
+	// runtime.Caller to get the exact absolute path of this file on disk,
+	// and then navigate up to the `backend` directory.
+	var backendRoot string
+	_, filename, _, ok := runtime.Caller(0)
+	if ok {
+		// filename is /path/to/backend/cmd/server/main.go
+		// We want /path/to/backend
+		backendRoot = filepath.Dir(filepath.Dir(filepath.Dir(filename)))
+		log.Printf("Detected backend root via runtime.Caller: %s", backendRoot)
 	}
 
-	r.Static("/uploads", resolve("./uploads"))
-	r.Static("/assets", resolve("../../../frontend/dist/client/assets"))
-	r.Static("/custom-emojis", resolve("../../../emoji"))
-	r.StaticFile("/favicon.ico", resolve("../../../frontend/dist/client/favicon.ico"))
-	r.StaticFile("/vite.svg", resolve("../../../frontend/dist/client/vite.svg"))
+	// Fallback to cwd just in case (should rarely happen)
+	if backendRoot == "" || !filepath.IsAbs(backendRoot) {
+		cwd, _ := os.Getwd()
+		backendRoot = cwd
+		log.Printf("WARNING: Could not determine backend root via runtime.Caller, using cwd: %s", cwd)
+	}
+
+	// Change working directory to backend root so all relative paths in handlers (./uploads) work correctly
+	if err := os.Chdir(backendRoot); err != nil {
+		log.Printf("Failed to change directory to backend root: %v", err)
+	} else {
+		log.Printf("Changed working directory to: %s", backendRoot)
+	}
+
+	// Helper to log static paths
+	logStatic := func(relPath string) string {
+		if _, err := os.Stat(relPath); err == nil {
+			log.Printf("Static Path OK: %s", relPath)
+		} else {
+			log.Printf("Warning: Static path does not exist: %s", relPath)
+		}
+		return relPath
+	}
+
+	r.Static("/uploads", logStatic("uploads"))
+	r.Static("/flag-icons", logStatic("uploads/flag-icons"))
+	r.Static("/assets", logStatic("../frontend/dist/client/assets"))
+	r.Static("/custom-emojis", logStatic("../emoji"))
+	r.StaticFile("/favicon.ico", logStatic("../frontend/dist/client/favicon.ico"))
+	r.StaticFile("/vite.svg", logStatic("../frontend/dist/client/vite.svg"))
 
 	// SSR Setup
 	ssrHandler := handler.NewSSRHandler()
 	// Optional: Start Node server automatically (or rely on external process)
 	ssrHandler.StartNodeServer()
 
-	// SSR Handler: Serve SSR for unknown routes (except /api)
+	// SSR Handler: Serve SSR for unknown routes (except /api and static folders)
 	r.NoRoute(func(c *gin.Context) {
-		if !strings.HasPrefix(c.Request.URL.Path, "/api") {
-			ssrHandler.ServeSSR(c)
-		} else {
-			c.JSON(404, gin.H{"error": "API route not found"})
+		p := c.Request.URL.Path
+		// Do not serve SSR for missing API, uploads, assets or image files
+		if strings.HasPrefix(p, "/api") ||
+			strings.HasPrefix(p, "/uploads") ||
+			strings.HasPrefix(p, "/assets") ||
+			strings.HasPrefix(p, "/custom-emojis") ||
+			strings.HasSuffix(p, ".ico") ||
+			strings.HasSuffix(p, ".svg") ||
+			strings.HasSuffix(p, ".png") ||
+			strings.HasSuffix(p, ".jpg") ||
+			strings.HasSuffix(p, ".jpeg") ||
+			strings.HasSuffix(p, ".webp") {
+			c.JSON(404, gin.H{"error": "Resource not found"})
+			return
 		}
+		ssrHandler.ServeSSR(c)
 	})
 
 	api := r.Group("/api")
@@ -267,6 +314,8 @@ func main() {
 			// Settings (Read-Only Public)
 			public.GET("/settings", settingsHandler.GetSettings)
 			public.GET("/quick-news", quickNewsHandler.GetAll)
+			public.GET("/countries", countryHandler.GetAll)
+			public.GET("/servers", serverHandler.GetAll)
 
 			// NEW: Public Users and Comments for Sidebar
 			public.GET("/users", userHandler.GetAll)
@@ -275,6 +324,7 @@ func main() {
 
 			// Community Posts (Read-Only)
 			public.GET("/posts", postHandler.GetFeed)
+			public.GET("/posts/:id", postHandler.GetPostByIDHandler)
 			public.GET("/posts/:id/comments", postHandler.GetPostComments)
 			public.GET("/posts/comments/:id/replies", postHandler.GetPostCommentReplies)
 		}
@@ -405,6 +455,12 @@ func main() {
 
 			// Quick News Admin Operations
 			protected.Group("/quick-news").POST("", quickNewsHandler.Create).PUT("/:id", quickNewsHandler.Update).DELETE("/:id", quickNewsHandler.Delete)
+
+			// Country Admin Operations
+			protected.Group("/countries").POST("", countryHandler.Create).PUT("/:id", countryHandler.Update).DELETE("/:id", countryHandler.Delete)
+
+			// Server Admin Operations
+			protected.Group("/servers").POST("", serverHandler.Create).PUT("/:id", serverHandler.Update).DELETE("/:id", serverHandler.Delete)
 		}
 	}
 

@@ -11,14 +11,7 @@ import AnimeHoverCard from '@/components/AnimeHoverCard';
 import { slugify } from '@/utils/slug';
 
 
-// Helper for image URLs
-const BASE_URL = '';
-const getImageUrl = (path?: string | null) => {
-    if (!path) return '';
-    if (path.startsWith('http')) return path;
-    const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    return `${BASE_URL}${cleanPath}`;
-};
+import { getImageUrl } from '@/utils/image-utils';
 
 // Get contextual description
 const getActionDescription = (item: HistoryItemType, isRtl: boolean) => {

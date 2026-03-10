@@ -51,12 +51,15 @@ import DmcaPage from '@/pages/animes/DmcaPage';
 import ProfilePage from '@/pages/ProfilePage';
 import FriendsPage from '@/pages/dashboard/FriendsPage';
 import CommunityPage from '@/pages/social/CommunityPage';
+import PostDetailPage from '@/pages/social/PostDetailPage';
 import ForeignMediaPage from '@/pages/animes/ForeignMediaPage';
 import { lazy } from 'react';
 
 const UserStatsPage = lazy(() => import('@/pages/user-dashboard/UserStatsPage'));
 const UserInteractionsPage = lazy(() => import('@/pages/user-dashboard/UserInteractionsPage'));
 const ChatPage = lazy(() => import('@/pages/social/ChatPage'));
+const CountriesPage = lazy(() => import('@/pages/dashboard/CountriesPage'));
+const ServersPage = lazy(() => import('@/pages/dashboard/ServersPage'));
 
 export const routes = [
     {
@@ -165,6 +168,10 @@ export const routes = [
                         element: <CommunityPage />,
                     },
                     {
+                        path: 'community/post/:postId',
+                        element: <PostDetailPage />,
+                    },
+                    {
                         path: 'movies-series',
                         element: <ForeignMediaPage />,
                     },
@@ -266,6 +273,14 @@ export const routes = [
                             {
                                 path: 'languages',
                                 element: <LanguagesPage />,
+                            },
+                            {
+                                path: 'countries',
+                                element: <CountriesPage />,
+                            },
+                            {
+                                path: 'servers',
+                                element: <ServersPage />,
                             },
                             {
                                 path: 'animes',

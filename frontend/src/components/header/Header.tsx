@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Bookmark } from 'lucide-react';
+import { Search, Bookmark, Home, Globe } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useAuthStore } from '@/stores/auth-store';
@@ -74,6 +74,33 @@ export function Header() {
                         <span className="font-bold text-gray-900 dark:text-white hidden sm:block text-xl">{appName || 'ANIME LAST'}</span>
                     </Link>
 
+                    {/* Mobile Home & Community Icons - Placed immediately after logo */}
+                    <div className="flex items-center gap-1 sm:hidden">
+                        <Link
+                            to={`/${i18n.language}`}
+                            onClick={() => {
+                                setMobileMenuOpen(false);
+                                setUserMenuOpen(false);
+                            }}
+                            className="p-2 text-black dark:text-white transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-white/10"
+                            title={isRtl ? "الرئيسية" : "Home"}
+                        >
+                            <Home className="w-[26px] h-[26px] stroke-[2.5px]" />
+                        </Link>
+
+                        <Link
+                            to={`/${i18n.language}/community`}
+                            onClick={() => {
+                                setMobileMenuOpen(false);
+                                setUserMenuOpen(false);
+                            }}
+                            className="p-2 text-black dark:text-white transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-white/10"
+                            title={isRtl ? "المجتمع" : "Community"}
+                        >
+                            <Globe className="w-[26px] h-[26px] stroke-[2.5px]" />
+                        </Link>
+                    </div>
+
                     {/* Desktop Navigation */}
                     <DesktopNavigation />
 
@@ -90,14 +117,32 @@ export function Header() {
 
                         {/* Icons Container */}
                         <div className="flex items-center gap-2 lg:gap-3">
-                            <ThemeToggle />
+                            <div className="hidden sm:flex items-center">
+                                <ThemeToggle />
+                            </div>
 
-                            <MessagesDropdown />
 
-                            <NotificationDropdown />
+
+                            <MessagesDropdown onOpenChange={(open) => {
+                                if (open) {
+                                    setMobileMenuOpen(false);
+                                    setUserMenuOpen(false);
+                                }
+                            }} />
+
+                            <NotificationDropdown onOpenChange={(open) => {
+                                if (open) {
+                                    setMobileMenuOpen(false);
+                                    setUserMenuOpen(false);
+                                }
+                            }} />
 
                             <Link
                                 to={`/${i18n.language}/watchlist`}
+                                onClick={() => {
+                                    setMobileMenuOpen(false);
+                                    setUserMenuOpen(false);
+                                }}
                                 className="p-2 text-gray-600 transition-colors rounded-full hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/10 hover:text-black dark:hover:text-white"
                                 title={isRtl ? "قائمة المشاهدة" : "My Watchlist"}
                             >

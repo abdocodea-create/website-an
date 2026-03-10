@@ -10,14 +10,7 @@ import CrunchyrollSkeleton from '@/components/skeleton/CrunchyrollSkeleton';
 import HistorySkeleton from '@/components/skeleton/HistorySkeleton';
 import HistoryItem from '@/components/HistoryItem';
 
-// Helper for image URLs
-const BASE_URL = '';
-const getImageUrl = (path?: string | null) => {
-    if (!path) return '';
-    if (path.startsWith('http')) return path;
-    const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    return `${BASE_URL}${cleanPath}`;
-};
+import { getImageUrl } from '@/utils/image-utils';
 
 export default function UserLibraryPage() {
     const { i18n } = useTranslation();

@@ -29,6 +29,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { getImageUrl } from "@/utils/image-utils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Server } from "lucide-react";
 
 export default function EpisodesPage() {
     const queryClient = useQueryClient();
@@ -71,6 +74,11 @@ export default function EpisodesPage() {
     const { data: animes } = useQuery({
         queryKey: ["animes"],
         queryFn: async () => (await api.get("/animes")).data,
+    });
+
+    const { data: servers } = useQuery({
+        queryKey: ["servers"],
+        queryFn: async () => (await api.get("/servers")).data,
     });
 
     // Auto-fill logic when anime_id changes
@@ -345,6 +353,7 @@ export default function EpisodesPage() {
                             handleChange={handleChange}
                             handleAnimeChange={handleAnimeChange}
                             animes={animes || []}
+                            serversList={servers || []}
                             isUploading={{ thumbnail: uploadingThumbnail, banner: uploadingBanner }}
                             handleImageUpload={handleImageUpload}
                             addVideoUrl={addVideoUrl}
@@ -367,6 +376,7 @@ export default function EpisodesPage() {
                         handleChange={handleChange}
                         handleAnimeChange={handleAnimeChange}
                         animes={animes || []}
+                        serversList={servers || []}
                         isUploading={{ thumbnail: uploadingThumbnail, banner: uploadingBanner }}
                         handleImageUpload={handleImageUpload}
                         addVideoUrl={addVideoUrl}
@@ -444,7 +454,7 @@ export default function EpisodesPage() {
 
 // Subcomponent for Form Content to reuse
 export function EpisodeFormContent({
-    formData, handleChange, handleAnimeChange, animes,
+    formData, handleChange, handleAnimeChange, animes, serversList,
     isUploading, handleImageUpload, addVideoUrl, removeVideoUrl, updateVideoUrl,
     onSubmit, isPending, onCancel, title
 }: any) {
@@ -523,11 +533,28 @@ export function EpisodeFormContent({
                                                 <option value="ar">عربي</option>
                                                 <option value="en">English</option>
                                             </select>
-                                            <Input
-                                                placeholder="Server Name (Optional)"
+                                            <Select
                                                 value={video.name}
-                                                onChange={(e) => updateVideoUrl(index, 'name', e.target.value)}
-                                            />
+                                                onValueChange={(val) => updateVideoUrl(index, 'name', val)}
+                                            >
+                                                <SelectTrigger className="w-[180px] h-10">
+                                                    <SelectValue placeholder="اختر سيرفر (اختياري)" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {serversList.map((srv: any) => (
+                                                        <SelectItem key={srv.id} value={srv.name_en || srv.name_ar}>
+                                                            <div className="flex items-center gap-2">
+                                                                {srv.image ? (
+                                                                    <img src={getImageUrl(srv.image)} alt={srv.name_en} className="w-5 h-5 object-cover rounded" />
+                                                                ) : (
+                                                                    <Server className="w-4 h-4 text-muted-foreground" />
+                                                                )}
+                                                                <span>{srv.name_en || srv.name_ar}</span>
+                                                            </div>
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                         </div>
                                         <Input
                                             placeholder="https://..."

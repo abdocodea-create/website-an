@@ -10,9 +10,13 @@ import { useAuthStore } from '@/stores/auth-store';
 import { Notification } from '@/lib/notifications-api';
 import { renderEmojiContent } from '@/utils/render-content';
 import api from '@/lib/api';
+import { getImageUrl } from '@/utils/image-utils';
 
+interface NotificationDropdownProps {
+    onOpenChange?: (open: boolean) => void;
+}
 
-export const NotificationDropdown: React.FC = () => {
+export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ onOpenChange }) => {
     const { t, i18n } = useTranslation();
     const navigate = useNavigate();
     const { user } = useAuthStore();
@@ -63,45 +67,66 @@ export const NotificationDropdown: React.FC = () => {
             await markAsRead(notif.id);
         }
 
-        // Navigation Logic
-        if (notif.type === 'friend_request' && notif.data.requester_id) {
-            navigate(`/${lang}/u/${notif.data.requester_id}/profile`);
+        const data = notif.data;
+        const currentLang = i18n.language || 'en';
+
+        // 1. Friend Requests
+        if (notif.type === 'friend_request' && data.requester_id) {
+            navigate(`/${currentLang}/u/${data.requester_id}/profile`);
             setIsOpen(false);
             return;
         }
-        if (notif.type === 'friend_request_accepted' && notif.data.accepter_id) {
-            navigate(`/${lang}/u/${notif.data.accepter_id}/profile`);
+        if (notif.type === 'friend_request_accepted' && data.accepter_id) {
+            navigate(`/${currentLang}/u/${data.accepter_id}/profile`);
             setIsOpen(false);
             return;
         }
-        if (notif.type === 'friend_request_rejected' && notif.data.rejecter_id) {
-            navigate(`/${lang}/u/${notif.data.rejecter_id}/profile`);
+        if (notif.type === 'friend_request_rejected' && data.rejecter_id) {
+            navigate(`/${currentLang}/u/${data.rejecter_id}/profile`);
             setIsOpen(false);
             return;
         }
 
-        if (notif.type === 'chat_message' && notif.data.sender_id) {
-            navigate(`/${lang}/u/${user?.id}/dashboard/messages?userId=${notif.data.sender_id}`);
+        // 2. Chat Messages
+        if (notif.type === 'chat_message' && data.sender_id) {
+            navigate(`/${currentLang}/u/${user?.id}/dashboard/messages?userId=${data.sender_id}`);
             setIsOpen(false);
             return;
         }
 
-        if (notif.data.anime_id && notif.data.episode_number !== undefined) {
-            let url = `/${lang}/watch/${notif.data.anime_id}/${notif.data.episode_number}`;
-            const commentId = notif.data.comment_id;
-            const parentId = notif.data.parent_id;
-
-            if (commentId) {
-                url += `?commentId=${commentId}`;
-                if (parentId) url += `&parentId=${parentId}`;
+        // 3. Community Posts (Check this BEFORE episode fallbacks)
+        if (data.post_id) {
+            let url = `/${currentLang}/community/post/${data.post_id}`;
+            if (data.comment_id) {
+                url += `?commentId=${data.comment_id}`;
+                if (data.parent_id) {
+                    url += `&parentId=${data.parent_id}`;
+                }
             }
-
             navigate(url);
             setIsOpen(false);
-        } else if (notif.data.episode_id) {
-            // Fallback for older notifications or different structures
-            navigate(`/${lang}/watch/${notif.data.episode_id}`);
+            return;
+        }
+
+        // 4. Watch Page (Anime Episodes)
+        if (data.anime_id && data.episode_number !== undefined) {
+            let url = `/${currentLang}/watch/${data.anime_id}/${data.episode_number}`;
+            if (data.comment_id) {
+                url += `?commentId=${data.comment_id}`;
+                if (data.parent_id) {
+                    url += `&parentId=${data.parent_id}`;
+                }
+            }
+            navigate(url);
             setIsOpen(false);
+            return;
+        }
+
+        // 5. Fallbacks
+        if (data.episode_id) {
+            navigate(`/${currentLang}/watch/${data.episode_id}`);
+            setIsOpen(false);
+            return;
         }
     };
 
@@ -132,9 +157,7 @@ export const NotificationDropdown: React.FC = () => {
     if (!user) return null;
 
     const getAvatarUrl = (path?: string) => {
-        if (!path) return '';
-        if (path.startsWith('http')) return path;
-        return path.startsWith('/') ? path : `/${path}`;
+        return getImageUrl(path);
     };
 
     const getLocale = () => isRtl ? ar : enUS;
@@ -143,7 +166,13 @@ export const NotificationDropdown: React.FC = () => {
         <div className="relative" ref={dropdownRef}>
             {/* Trigger Button */}
             <button
-                onClick={() => setIsOpen(!isOpen)}
+                onClick={() => {
+                    const nextState = !isOpen;
+                    setIsOpen(nextState);
+                    if (nextState && onOpenChange) {
+                        onOpenChange(true);
+                    }
+                }}
                 className={cn(
                     "relative p-2.5 transition-all duration-300 rounded-full group",
                     isOpen
@@ -373,14 +402,18 @@ export const NotificationDropdown: React.FC = () => {
                                                         </div>
                                                     </div>
 
-                                                    {/* Episode Info */}
+                                                    {/* Episode/Post Info */}
                                                     <div className="flex items-center gap-2 text-xs font-black text-gray-500 dark:text-gray-400">
                                                         <span className="bg-gray-100 dark:bg-zinc-800 px-2 py-0.5 rounded uppercase">
-                                                            {isRtl ? 'الحلقة' : 'EPISODE'} {notif.data.episode_number}
+                                                            {notif.data.post_id
+                                                                ? (isRtl ? 'منشور' : 'POST')
+                                                                : (isRtl ? 'الحلقة' : 'EPISODE') + ' ' + notif.data.episode_number}
                                                         </span>
                                                         <ChevronLeft className={cn("w-4 h-4", !isRtl && "rotate-180")} />
                                                         <span className="hover:text-black dark:hover:text-white transition-colors">
-                                                            {isRtl ? 'مشاهدة الآن' : 'WATCH NOW'}
+                                                            {notif.data.post_id
+                                                                ? (isRtl ? 'عرض المنشور' : 'VIEW POST')
+                                                                : (isRtl ? 'مشاهدة الآن' : 'WATCH NOW')}
                                                         </span>
                                                     </div>
                                                 </div>

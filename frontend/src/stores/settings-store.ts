@@ -24,7 +24,7 @@ export const useSettingsStore = create<SettingsState>()(
             try {
                 const response = await api.get('/settings');
                 const { app_name, logo } = response.data;
-                const baseUrl = import.meta.env.VITE_API_URL || '';
+                const baseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/api$/, '');
                 set({
                     appName: app_name,
                     logoUrl: logo ? (logo.startsWith('http') ? logo : `${baseUrl}${logo}`) : ''

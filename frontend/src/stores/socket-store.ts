@@ -24,11 +24,24 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
     connect: (token: string) => {
         if (get().socket) return;
 
+
         // Determine protocol and host based on current environment
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        // If we are on Vite's default dev port or generic localhost, assume backend is at 8080
-        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        const backendHost = isLocal ? 'localhost:8080' : window.location.host;
+
+        let backendHost = window.location.host;
+        if (import.meta.env.VITE_API_URL) {
+            try {
+                const url = new URL(import.meta.env.VITE_API_URL);
+                backendHost = url.host;
+            } catch (e) {
+                // If VITE_API_URL is just a path like /api, use current host
+                backendHost = window.location.host;
+            }
+        } else if (window.location.port === '5173' || window.location.port === '3000') {
+            // Heuristic for development: if on common dev ports, default to 8080
+            backendHost = `${window.location.hostname}:8080`;
+        }
+
         const socketUrl = `${protocol}//${backendHost}/api/ws?token=${encodeURIComponent(token)}`;
 
         const socket = new WebSocket(socketUrl);

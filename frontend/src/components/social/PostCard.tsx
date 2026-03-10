@@ -11,7 +11,8 @@ import {
     X,
     ChevronLeft,
     ChevronRight,
-    MessageSquare
+    MessageSquare,
+    Loader2
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '@/stores/auth-store';
@@ -29,6 +30,27 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { CommentsSection } from '@/components/comments/CommentsSection';
+
+const ImageWithSpinner = ({ src, alt, className }: { src: string, alt: string, className: string }) => {
+    const [isLoaded, setIsLoaded] = useState(false);
+
+    return (
+        <div className="relative w-full h-full flex items-center justify-center">
+            {!isLoaded && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-[#1a1a1a]">
+                    <Loader2 className="w-12 h-12 text-black dark:text-gray-400 animate-spin" />
+                </div>
+            )}
+            <img
+                src={src}
+                alt={alt}
+                loading="lazy"
+                className={cn(className, !isLoaded && "opacity-0")}
+                onLoad={() => setIsLoaded(true)}
+            />
+        </div>
+    );
+};
 
 interface PostImage {
     id: number;
@@ -54,18 +76,26 @@ interface Post {
 interface PostCardProps {
     post: Post;
     onDelete?: (id: number) => void;
+    initialShowComments?: boolean;
 }
 
 
-export const PostCard: React.FC<PostCardProps> = ({ post, onDelete }) => {
+export const PostCard: React.FC<PostCardProps> = ({ post, onDelete, initialShowComments = false }) => {
     const { i18n } = useTranslation();
     const isAr = i18n.language === 'ar';
     const { user: currentUser } = useAuthStore();
 
     const [isLiked, setIsLiked] = useState(post.is_liked);
     const [likesCount, setLikesCount] = useState(post.likes_count || 0);
-    const [showComments, setShowComments] = useState(false);
+    const [showComments, setShowComments] = useState(initialShowComments || new URLSearchParams(window.location.search).has('commentId'));
     const [isDeleting, setIsDeleting] = useState(false);
+
+    // Sync showComments with URL params for deep linking
+    React.useEffect(() => {
+        if (new URLSearchParams(window.location.search).has('commentId')) {
+            setShowComments(true);
+        }
+    }, [window.location.search]);
 
     const handleShare = () => {
         const url = `${window.location.origin}/${i18n.language}/social?postId=${post.id}`;
@@ -194,7 +224,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onDelete }) => {
                                 post.images && post.images.length === 1 ? "aspect-auto max-h-[480px] flex justify-center" : "aspect-square"
                             )}
                         >
-                            <img
+                            <ImageWithSpinner
                                 src={getImageUrl(img.image_url)}
                                 alt=""
                                 className={cn(
@@ -248,7 +278,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onDelete }) => {
                     )}
                 >
                     <MessageCircle className="w-5 h-5" />
-                    <span>{isAr ? 'تعليق' : 'Comment'}</span>
+                    <span>{isAr ? 'تعليق' : 'Comment'} {post.comments_count > 0 && `(${post.comments_count})`}</span>
                 </button>
                 <button
                     onClick={handleShare}

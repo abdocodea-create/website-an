@@ -1,6 +1,7 @@
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Clock, Share2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { getImageUrl } from '@/utils/image-utils';
 
 interface ShareModalProps {
     episode: any;
@@ -17,12 +18,6 @@ export function ShareModal({ episode, anime, isOpen, onClose }: ShareModalProps)
     const animeTitle = anime.title;
     const thumbnail = episode.thumbnail || episode.banner || anime.cover || anime.banner;
 
-    // Helper for image URLs
-    const getImageUrl = (url: string) => {
-        if (!url) return '/placeholder-episode.jpg';
-        if (url.startsWith('http')) return url;
-        return url.startsWith('/') ? url : `/${url}`;
-    };
 
     const shareUrl = window.location.href;
     const shareText = `${title} - ${animeTitle}`;

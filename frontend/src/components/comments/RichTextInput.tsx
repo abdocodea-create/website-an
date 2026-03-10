@@ -125,6 +125,18 @@ export const RichTextInput = forwardRef<HTMLDivElement, RichTextInputProps>(({
             if (editorRef.current) {
                 editorRef.current.focus();
             }
+        },
+        focusAtEnd: () => {
+            if (editorRef.current) {
+                editorRef.current.focus();
+                const el = editorRef.current;
+                const range = document.createRange();
+                const sel = window.getSelection();
+                range.selectNodeContents(el);
+                range.collapse(false); // false = collapse to end
+                sel?.removeAllRanges();
+                sel?.addRange(range);
+            }
         }
     } as any));
 

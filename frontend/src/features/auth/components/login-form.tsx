@@ -28,7 +28,7 @@ export function LoginForm() {
 
     // Schema with translated error messages could be implemented here
     const formSchema = z.object({
-        email: z.string().email(),
+        name: z.string().min(3, { message: lang === 'ar' ? 'اسم المستخدم يجب أن يكون 3 أحرف على الأقل' : 'Username must be at least 3 characters' }),
         password: z.string().min(6),
     })
 
@@ -39,7 +39,7 @@ export function LoginForm() {
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
         defaultValues: {
-            email: "",
+            name: "",
             password: "",
         },
     })
@@ -56,7 +56,7 @@ export function LoginForm() {
             window.location.assign(`/${targetLang}`);
         } catch (error: any) {
             if (error.response?.status === 401) {
-                toast.error(lang === 'ar' ? "البريد الإلكتروني أو كلمة المرور غير صحيحة" : "Invalid email or password");
+                toast.error(lang === 'ar' ? "اسم المستخدم أو كلمة المرور غير صحيحة" : "Invalid username or password");
             } else {
                 toast.error(lang === 'ar' ? "فشل تسجيل الدخول. يرجى المحاولة مرة أخرى." : "Login failed. Please try again.");
             }
@@ -74,15 +74,15 @@ export function LoginForm() {
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                         <FormField
                             control={form.control}
-                            name="email"
+                            name="name"
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel className="text-lg">
-                                        {lang === 'ar' ? 'البريد الإلكتروني' : 'Email'}
+                                        {lang === 'ar' ? 'اسم المستخدم' : 'Username'}
                                     </FormLabel>
                                     <FormControl>
                                         <Input
-                                            placeholder={lang === 'ar' ? "m@example.com" : "m@example.com"}
+                                            placeholder={lang === 'ar' ? "user123" : "user123"}
                                             {...field}
                                             disabled={isLoading}
                                             className="rounded-none h-14 text-lg border-gray-300 dark:border-gray-700 focus:ring-1 focus:ring-primary"

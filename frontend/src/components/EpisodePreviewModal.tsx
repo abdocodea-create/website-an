@@ -3,6 +3,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ThumbsUp, Eye, MessageSquare, Star, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/api";
+import { getImageUrl } from '@/utils/image-utils';
 
 interface EpisodePreviewModalProps {
     isOpen: boolean;
@@ -11,14 +12,6 @@ interface EpisodePreviewModalProps {
     lang: string;
 }
 
-const BASE_URL = '';
-
-const getImageUrl = (path: string) => {
-    if (!path) return '';
-    if (path.startsWith('http')) return path;
-    const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    return `${BASE_URL}${cleanPath}`;
-};
 
 export default function EpisodePreviewModal({ isOpen, onClose, data, lang }: EpisodePreviewModalProps) {
     const navigate = useNavigate();

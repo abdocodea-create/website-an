@@ -28,6 +28,7 @@ import { usePermission } from "@/stores/auth-store";
 
 import { useDebounce } from "@/hooks/use-debounce";
 import { Input } from "@/components/ui/input";
+import { getImageUrl } from "@/utils/image-utils";
 
 export default function UsersPage() {
     const [open, setOpen] = useState(false);
@@ -133,7 +134,7 @@ export default function UsersPage() {
                                     <TableRow key={user.id}>
                                         <TableCell>
                                             <Avatar>
-                                                <AvatarImage src={user.avatar ? `${user.avatar}` : ""} className="object-cover" />
+                                                <AvatarImage src={getImageUrl(user.avatar)} className="object-cover" />
                                                 <AvatarFallback>{user.name[0]}</AvatarFallback>
                                             </Avatar>
                                         </TableCell>

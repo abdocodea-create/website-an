@@ -17,6 +17,7 @@ func SeedAll(db *gorm.DB) {
 	SeedTypes(db)
 	SeedStudios(db)
 	SeedLanguages(db)
+	SeedCountries(db)
 	SeedSeasons(db)
 
 	// Animes & Episodes

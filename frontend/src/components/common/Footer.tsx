@@ -1,4 +1,4 @@
-import { Facebook, Twitter, Instagram, Youtube, Home, LayoutGrid, Sparkles, Monitor, Film, PlayCircle, LogIn, UserPlus, Globe, Moon, Sun, ShieldAlert, Mail, ArrowUp } from "lucide-react";
+import { Facebook, Twitter, Instagram, Youtube, Home, LayoutGrid, Sparkles, Monitor, Film, PlayCircle, LogIn, UserPlus, Globe, Moon, Sun, ShieldAlert, Mail } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "@/components/theme-provider";
@@ -9,6 +9,15 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+import {
+    Dialog,
+    DialogContent,
+    DialogTrigger,
+    DialogTitle,
+    DialogDescription
+} from "@/components/ui/dialog";
+
+
 import { useSettingsStore } from "@/stores/settings-store";
 
 export default function Footer() {
@@ -18,9 +27,6 @@ export default function Footer() {
     const { appName, logoUrl } = useSettingsStore();
     const isRtl = i18n.language === 'ar';
 
-    const scrollToTop = () => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
 
     const handleLanguageSelect = (lang: string) => {
         if (i18n.language === lang) return;
@@ -123,8 +129,8 @@ export default function Footer() {
                         </div>
 
                         {/* Language Switch */}
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
+                        <Dialog>
+                            <DialogTrigger asChild>
                                 <button
                                     className="flex items-center justify-between w-full bg-white dark:bg-black border border-gray-200 dark:border-[#333] text-gray-900 dark:text-white py-3 px-4 hover:border-black dark:hover:border-white transition-colors text-sm font-bold rounded-none outline-none"
                                 >
@@ -134,18 +140,46 @@ export default function Footer() {
                                     </div>
                                     <span className="uppercase text-black dark:text-white font-black">{i18n.language === 'ar' ? 'العربية' : 'English'}</span>
                                 </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align={isRtl ? "start" : "end"} className="w-[var(--radix-dropdown-menu-trigger-width)] bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-[#333] rounded-none">
-                                <DropdownMenuItem onClick={() => handleLanguageSelect('ar')} className="cursor-pointer flex justify-between">
-                                    <span>العربية</span>
-                                    {i18n.language === 'ar' && <span className="text-black dark:text-white">✓</span>}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleLanguageSelect('en')} className="cursor-pointer flex justify-between">
-                                    <span>English</span>
-                                    {i18n.language === 'en' && <span className="text-black dark:text-white">✓</span>}
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                            </DialogTrigger>
+                            <DialogContent className="rounded-none bg-white p-6 sm:max-w-[425px]">
+                                <DialogTitle className="sr-only">Select Language</DialogTitle>
+                                <DialogDescription className="sr-only">Choose your preferred language.</DialogDescription>
+
+                                <h2 className="text-2xl font-black text-black text-center mb-6 uppercase tracking-wider">
+                                    {isRtl ? 'اختر لغة الموقع' : 'Select Language'}
+                                </h2>
+
+                                <div className="flex flex-col gap-4">
+                                    <button
+                                        onClick={() => handleLanguageSelect('ar')}
+                                        className={`flex items-center justify-between p-4 border-2 transition-colors rounded-none outline-none ${i18n.language === 'ar' ? 'border-black bg-gray-50' : 'border-gray-200 hover:border-black'}`}
+                                        dir="rtl"
+                                    >
+                                        <span className="text-3xl font-black text-black">العربية</span>
+                                        <img
+                                            src={`${(import.meta.env.VITE_API_URL || '').replace('/api', '')}/uploads/flag-icons/flags/4x3/ly.svg`}
+                                            alt="اللغة العربية (ليبيا)"
+                                            className="w-16 h-12 object-cover border border-gray-300"
+                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                        />
+                                    </button>
+
+                                    <button
+                                        onClick={() => handleLanguageSelect('en')}
+                                        className={`flex items-center justify-between p-4 border-2 transition-colors rounded-none outline-none ${i18n.language === 'en' ? 'border-black bg-gray-50' : 'border-gray-200 hover:border-black'}`}
+                                        dir="ltr"
+                                    >
+                                        <span className="text-3xl font-black text-black">English</span>
+                                        <img
+                                            src={`${(import.meta.env.VITE_API_URL || '').replace('/api', '')}/uploads/flag-icons/flags/4x3/us.svg`}
+                                            alt="English (United States)"
+                                            className="w-16 h-12 object-cover border border-gray-300"
+                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                        />
+                                    </button>
+                                </div>
+                            </DialogContent>
+                        </Dialog>
 
                         {/* Theme Switcher */}
                         <DropdownMenu>
@@ -204,14 +238,7 @@ export default function Footer() {
                         <Link to={`/${i18n.language}/terms`} className="hover:text-black dark:hover:text-white transition-colors">{isRtl ? 'الشروط والأحكام' : 'Terms of Service'}</Link>
                     </div>
 
-                    {/* Scroll To Top Button */}
-                    <button
-                        onClick={scrollToTop}
-                        className="absolute left-1/2 -translate-x-1/2 -top-6 md:-top-6 bg-black dark:bg-white text-white dark:text-black p-3 rounded-none shadow-lg hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors group"
-                        title="Scroll to Top"
-                    >
-                        <ArrowUp className="w-5 h-5 group-hover:-translate-y-1 transition-transform" />
-                    </button>
+
                 </div>
             </div>
         </footer>

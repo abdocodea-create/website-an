@@ -10,25 +10,26 @@ import { useAuthStore } from '@/stores/auth-store';
 import { renderEmojiContent } from '@/utils/render-content';
 import { Notification } from '@/lib/notifications-api';
 import api from '@/lib/api';
+import { getImageUrl } from '@/utils/image-utils';
 
 import CrunchyrollSkeleton from '@/components/skeleton/CrunchyrollSkeleton';
 
 const getAvatarUrl = (avatar: string | null | undefined) => {
-    if (!avatar) return undefined;
-    if (avatar.startsWith('http')) return avatar;
-    // Check if it already has a slash
-    return avatar.startsWith('/') ? avatar : `/${avatar}`;
+    return getImageUrl(avatar);
 };
 
 const getMediaImageUrl = (image: string | null | undefined) => {
     if (!image) return undefined;
     if (image.startsWith('http')) return image;
-    // If it starts with /uploads, it's already a relative path
+
+    const baseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/api$/, '');
+
+    // If it starts with /uploads, it's already a full relative path
     if (image.startsWith('/uploads')) {
-        return `http://localhost:8080${image}`;
+        return `${baseUrl}${image}`;
     }
     // Default to animes folder if just a filename
-    return `http://localhost:8080/uploads/animes/${image}`;
+    return `${baseUrl}/uploads/animes/${image}`;
 };
 
 // Helper to format name and hide email if necessary
@@ -347,6 +348,12 @@ export default function NotificationsPage() {
         if (data.comment_id) params.append('commentId', data.comment_id.toString());
         if (data.parent_id) params.append('parentId', data.parent_id.toString());
         const queryString = params.toString() ? `?${params.toString()}` : '';
+
+        if (data.post_id) {
+            let url = `/${lang}/community/post/${data.post_id}${queryString}`;
+            navigate(url);
+            return;
+        }
 
         // The correct route is /:lang/watch/:animeId/:episodeNum
         if (data.anime_id && data.episode_number) {

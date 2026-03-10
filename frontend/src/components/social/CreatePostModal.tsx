@@ -18,6 +18,8 @@ import {
     DialogTitle,
     DialogFooter,
 } from '@/components/ui/dialog';
+import { useTheme } from '@/components/theme-provider';
+import { getImageUrl } from '@/utils/image-utils';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/stores/auth-store';
 import { RichTextInput } from '@/components/comments/RichTextInput';
@@ -126,9 +128,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
     };
 
     const getAvatarUrl = (avatar?: string) => {
-        if (!avatar) return '';
-        if (avatar.startsWith('http')) return avatar;
-        return avatar.startsWith('/') ? avatar : `/${avatar}`;
+        return getImageUrl(avatar);
     };
 
     return (

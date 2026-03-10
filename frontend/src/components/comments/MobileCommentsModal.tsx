@@ -9,6 +9,7 @@ import { CustomEmojiPicker } from './CustomEmojiPicker';
 import { RichTextInput } from './RichTextInput';
 import { QuickEmojiRow } from './QuickEmojiRow';
 import api from '@/lib/api';
+import { getImageUrl } from '@/utils/image-utils';
 
 interface MobileCommentsModalProps {
     isOpen: boolean;
@@ -60,9 +61,7 @@ export const MobileCommentsModal: React.FC<MobileCommentsModalProps> = ({
     }, [showEmojiPicker, showCustomEmojiPicker]);
 
     const getAvatarUrl = (avatar?: string) => {
-        if (!avatar) return '';
-        if (avatar.startsWith('http')) return avatar;
-        return avatar.startsWith('/') ? avatar : `/${avatar}`;
+        return getImageUrl(avatar);
     };
 
     const addComment = async () => {

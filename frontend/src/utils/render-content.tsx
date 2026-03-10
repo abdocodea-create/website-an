@@ -45,7 +45,7 @@ export const renderEmojiContent = (content: string | null | undefined) => {
                     key={`emoji-${index}`}
                     src={emojiUrl}
                     alt="emoji"
-                    className="inline-block w-6 h-6 min-w-[1.5rem] align-middle mx-0.5 pointer-events-none select-none flex-shrink-0 object-contain"
+                    className="inline-block w-[7vw] max-w-[44px] sm:w-7 sm:h-7 align-middle mx-0.5 pointer-events-none select-none flex-shrink-0 object-contain"
                     draggable={false}
                     loading="eager"
                 />
@@ -84,7 +84,7 @@ export const replaceEmojiWithHtml = (content: string | null | undefined) => {
             emojiUrl = `/custom-emojis/${filename}`;
             emojiUrl = emojiUrl.replace(/\/+/g, '/');
 
-            return `<img src="${emojiUrl}" alt="emoji" class="inline-block w-6 h-6 min-w-[1.5rem] align-middle mx-0.5 flex-shrink-0 object-contain" draggable="false" loading="eager" />`;
+            return `<img src="${emojiUrl}" alt="emoji" class="inline-block w-[7vw] max-w-[44px] sm:w-7 sm:h-7 align-middle mx-0.5 flex-shrink-0 object-contain" draggable="false" loading="eager" />`;
         }
     );
 };

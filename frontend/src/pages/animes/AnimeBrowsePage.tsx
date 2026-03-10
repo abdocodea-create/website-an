@@ -30,14 +30,7 @@ import {
 import { useTheme } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
 
-const BASE_URL = '';
-
-const getImageUrl = (path: string) => {
-    if (!path) return '';
-    if (path.startsWith('http')) return path;
-    const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    return `${BASE_URL}${cleanPath}`;
-};
+import { getImageUrl } from '@/utils/image-utils';
 
 export default function AnimeBrowsePage() {
     const { i18n } = useTranslation();
@@ -80,98 +73,113 @@ export default function AnimeBrowsePage() {
     const seoTitle = i18n.language === 'ar' ? 'الرئيسية - AnimeLast' : 'Home - AnimeLast';
 
     return (
-        <div dir={i18n.language === 'ar' ? 'rtl' : 'ltr'} className="min-h-screen bg-white dark:bg-black text-gray-900 dark:text-white font-sans transition-colors duration-300">
+        <div dir={i18n.language === 'ar' ? 'rtl' : 'ltr'} className="min-h-screen bg-[#f0f2f5] dark:bg-black text-gray-900 dark:text-white font-sans transition-colors duration-300">
             <Helmet>
                 <title>{seoTitle}</title>
             </Helmet>
 
-            {isLoading ? (
-                <CentralSpinner className="min-h-screen" />
-            ) : (
-                <>
-                    <NewsTicker />
+            {/* NewsTicker wrapper with min-height to prevent layout jump */}
+            <div className="min-h-[45px]">
+                <NewsTicker />
+            </div>
 
-                    {/* Modals */}
-                    <SearchModal isOpen={isSearchModalOpen} onClose={() => setIsSearchModalOpen(false)} />
-                    <FilterModal isOpen={isFilterModalOpen} onClose={() => setIsFilterModalOpen(false)} />
-                    <SearchAnimeModal isOpen={isSearchAnimeModalOpen} onClose={() => setIsSearchAnimeModalOpen(false)} />
-                    <FilterAnimeModal isOpen={isFilterAnimeModalOpen} onClose={() => setIsFilterAnimeModalOpen(false)} />
+            {/* Modals */}
+            <SearchModal isOpen={isSearchModalOpen} onClose={() => setIsSearchModalOpen(false)} />
+            <FilterModal isOpen={isFilterModalOpen} onClose={() => setIsFilterModalOpen(false)} />
+            <SearchAnimeModal isOpen={isSearchAnimeModalOpen} onClose={() => setIsSearchAnimeModalOpen(false)} />
+            <FilterAnimeModal isOpen={isFilterAnimeModalOpen} onClose={() => setIsFilterAnimeModalOpen(false)} />
 
-                    {/* Main Layout - Centered with Wide Margins */}
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-visible max-w-[1200px] mx-auto transition-all duration-300">
-                        {/* Main Content - Full Width */}
-                        <div className="px-2 sm:px-6 md:px-8 pt-3 pb-8 lg:pt-5 transition-all duration-300 col-span-1 lg:col-span-12">
-                            {/* Latest Episodes Section - List Design */}
-                            <BrowseSection
-                                title={i18n.language === 'ar' ? 'تصفح انميات الجديدة' : 'Browse New Animes'}
-                                endpoint="/episodes/latest"
-                                lang={i18n.language}
-                                isRtl={isRtl}
-                                isEpisodes={true}
-                            />
+            {/* Main Layout - Same as CommunityPage                        {/* Main Grid: Custom widths for narrower sidebar */}
+            <div className="w-full min-h-screen">
+                <div className="grid grid-cols-1 lg:grid-cols-[200px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)] gap-0 overflow-visible min-h-screen">
 
-                            {/* Browse All Section */}
-                            <BrowseSection
-                                title={i18n.language === 'ar' ? 'تصفح كل الأنميات' : 'Browse All Animes'}
-                                endpoint="/animes"
-                                lang={i18n.language}
-                                isRtl={isRtl}
-                            />
-
-                            {/* Latest Animes Section */}
-                            <Section
-                                title={i18n.language === 'ar' ? 'أحدث الأنميات' : 'Latest Animes'}
-                                endpoint="/animes/latest"
-                                type="anime"
-                                limit={12}
-                                showActionButtons={true}
-                                onSearchClick={() => setIsSearchAnimeModalOpen(true)}
-                                onFilterClick={() => setIsFilterAnimeModalOpen(true)}
-                                lang={i18n.language}
-                            />
-
-                            {/* Movies Section */}
-                            <Section
-                                title={i18n.language === 'ar' ? 'أفلام مختارة' : 'Selected Movies'}
-                                endpoint="/animes/type/movie"
-                                type="movie"
-                                limit={12}
-                                showLink={true}
-                                linkTarget={`/${i18n.language}/movies`}
-                                lang={i18n.language}
-                            />
-
-                            {/* TV Series Section */}
-                            <Section
-                                title={i18n.language === 'ar' ? 'مسلسلات أنمي تلفزيونية' : 'TV Series'}
-                                endpoint="/animes/type/TV"
-                                type="anime"
-                                limit={12}
-                                showLink={true}
-                                linkTarget="/tv-series"
-                                lang={i18n.language}
-                            />
-
-                            {/* Top Animes */}
-                            <Section
-                                title={i18n.language === 'ar' ? 'أنميات بتقييم عالي' : 'High Rated Animes'}
-                                endpoint="/animes/top-rated"
-                                type="anime"
-                                limit={12}
-                                showLink={true}
-                                linkTarget={`/${i18n.language}/animes`}
-                                lang={i18n.language}
-                            />
-                        </div>
-                        {/* End Main Content */}
-
+                    {/* Left Sidebar - SocialNavSidebar */}
+                    <div className="hidden lg:block sticky top-[105px] h-[calc(100vh-105px)] overflow-y-auto custom-scrollbar bg-transparent z-30 border-r border-gray-100 dark:border-[#333]/50">
+                        <SocialNavSidebar />
                     </div>
-                    {/* End Main Layout with Sidebar */}
 
-                    {/* Advanced Footer */}
-                    <Footer />
-                </>
-            )}
+                    {/* Main Content - wider width */}
+                    <div className="min-w-0 w-full px-2 sm:px-6 md:px-8 pt-3 pb-8 lg:pt-5">
+                        {isLoading ? (
+                            <div className="flex items-center justify-center min-h-[60vh]">
+                                <div className="relative w-20 h-20">
+                                    <div className="absolute inset-0 border-4 border-gray-200 dark:border-gray-800 rounded-full"></div>
+                                    <div className="absolute inset-0 border-4 border-t-black dark:border-t-white border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
+                                </div>
+                            </div>
+                        ) : (
+                            <>
+                                {/* Latest Episodes Section - List Design */}
+                                <BrowseSection
+                                    title={i18n.language === 'ar' ? 'تصفح انميات الجديدة' : 'Browse New Animes'}
+                                    endpoint="/episodes/latest"
+                                    lang={i18n.language}
+                                    isRtl={isRtl}
+                                    isEpisodes={true}
+                                />
+
+                                {/* Browse All Section */}
+                                <BrowseSection
+                                    title={i18n.language === 'ar' ? 'تصفح كل الأنميات' : 'Browse All Animes'}
+                                    endpoint="/animes"
+                                    lang={i18n.language}
+                                    isRtl={isRtl}
+                                />
+
+                                {/* Latest Animes Section */}
+                                <Section
+                                    title={i18n.language === 'ar' ? 'أحدث الأنميات' : 'Latest Animes'}
+                                    endpoint="/animes/latest"
+                                    type="anime"
+                                    limit={12}
+                                    showActionButtons={true}
+                                    onSearchClick={() => setIsSearchAnimeModalOpen(true)}
+                                    onFilterClick={() => setIsFilterAnimeModalOpen(true)}
+                                    lang={i18n.language}
+                                />
+
+                                {/* Movies Section */}
+                                <Section
+                                    title={i18n.language === 'ar' ? 'أفلام مختارة' : 'Selected Movies'}
+                                    endpoint="/animes/type/movie"
+                                    type="movie"
+                                    limit={12}
+                                    showLink={true}
+                                    linkTarget={`/${i18n.language}/movies`}
+                                    lang={i18n.language}
+                                />
+
+                                {/* TV Series Section */}
+                                <Section
+                                    title={i18n.language === 'ar' ? 'مسلسلات أنمي تلفزيونية' : 'TV Series'}
+                                    endpoint="/animes/type/TV"
+                                    type="anime"
+                                    limit={12}
+                                    showLink={true}
+                                    linkTarget="/tv-series"
+                                    lang={i18n.language}
+                                />
+
+                                {/* Top Animes */}
+                                <Section
+                                    title={i18n.language === 'ar' ? 'أنميات بتقييم عالي' : 'High Rated Animes'}
+                                    endpoint="/animes/top-rated"
+                                    type="anime"
+                                    limit={12}
+                                    showLink={true}
+                                    linkTarget={`/${i18n.language}/animes`}
+                                    lang={i18n.language}
+                                />
+                            </>
+                        )}
+                    </div>
+                    {/* End Main Content */}
+                </div>
+                {/* End Main Layout with Sidebar */}
+            </div>
+
+            {/* Advanced Footer */}
+            <Footer />
         </div>
     );
 }
@@ -223,8 +231,8 @@ const Section = ({ title, endpoint, type, limit, showSearch, search, setSearch, 
 
     const isEpisode = type === 'episode';
     const gridCols = isEpisode
-        ? "flex flex-col gap-4 md:grid md:grid-cols-2 lg:grid-cols-5"
-        : "grid grid-cols-2 gap-2 md:gap-6 md:grid-cols-3 lg:grid-cols-6";
+        ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 gap-y-6"
+        : "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-x-4 gap-y-8";
 
     return (
         <section className="mb-10" ref={elementRef as React.RefObject<HTMLDivElement>}>
@@ -426,31 +434,31 @@ function BrowseSection({ title, endpoint, lang, isRtl, isEpisodes }: { title: st
             </div>
 
             {/* Content List */}
-            <div className="flex flex-col gap-6">
+            <div className={isEpisodes ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 gap-y-6" : "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-x-4 gap-y-8"}>
                 {isLoading ? (
                     window.innerWidth < 768 ? (
-                        <AnimeBrowseMobileSkeleton type="browse-all" count={5} />
+                        <AnimeBrowseMobileSkeleton type={isEpisodes ? 'episode' : 'anime'} count={12} />
                     ) : (
-                        <CrunchyrollSkeleton count={5} layout="list" className="!bg-transparent" />
+                        <CrunchyrollSkeleton count={12} isEpisode={isEpisodes} layout="grid" className="!bg-transparent" />
                     )
                 ) : allItems.length > 0 ? (
                     allItems.map((item: any, index: number) => (
-                        <div
+                        <CardItem
                             key={item.id}
-                            className="relative group"
+                            item={item}
+                            index={index}
+                            type={isEpisodes ? 'episode' : 'anime'}
+                            lang={lang}
+                            isHovered={hoveredCardIndex === index}
                             onMouseEnter={() => handleMouseEnter(index)}
                             onMouseLeave={handleMouseLeave}
-                        >
-                            <ListItem item={item} lang={lang} isRtl={isRtl} isEpisode={isEpisodes} />
-                            {hoveredCardIndex === index && (
-                                <div className="absolute top-0 z-20 h-auto min-h-full left-0 right-0 w-full pointer-events-none md:pointer-events-auto">
-                                    <AnimeListHoverCard data={isEpisodes ? (item.anime || item) : item} lang={lang} className="h-full w-full" />
-                                </div>
-                            )}
-                        </div>
+                            keepCardOpen={() => {
+                                if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+                            }}
+                        />
                     ))
                 ) : (
-                    <div className="text-center py-10 text-gray-500">
+                    <div className="col-span-full text-center py-10 text-gray-500">
                         {isRtl ? 'لا توجد نتائج' : 'No results found'}
                     </div>
                 )}
@@ -479,100 +487,21 @@ function BrowseSection({ title, endpoint, lang, isRtl, isEpisodes }: { title: st
     );
 }
 
-// ─── List Item Design ──────────────────────────────────────────────────────────
-
-const getValidImageUrl = (path: string) => {
-    if (!path) return '';
-    if (path.startsWith('http')) return path;
-    const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    return `${cleanPath}`;
-};
-
-function ListItem({ item, lang, isRtl, isEpisode }: { item: any; lang: string; isRtl: boolean; isEpisode?: boolean }) {
-    const anime = isEpisode ? (item.anime || item.series) : item;
-
-    if (!anime) return null;
-
-    const title = lang === 'ar' ? (anime.title || anime.title_en) : (anime.title_en || anime.title);
-    const description = lang === 'ar'
-        ? (anime.description || anime.series?.description || 'لا يوجد وصف متاح')
-        : (anime.description_en || anime.series?.description_en || 'No description available');
-
-    const image = isEpisode
-        ? (item.thumbnail || item.banner || anime.cover)
-        : (anime.cover || anime.banner);
-
-    const episodeNum = isEpisode ? item.episode_number : null;
-
-    return (
-        <Link
-            to={isEpisode
-                ? `/${lang}/watch/${anime.id}/${episodeNum}/${slugify(title)}`
-                : `/${lang}/animes/${anime.id}/${slugify(title)}`}
-            className="group flex flex-row gap-3 md:gap-6 bg-transparent hover:bg-gray-50 dark:hover:bg-neutral-900/40 transition-colors duration-200 relative z-10"
-        >
-            <div className="w-[170px] md:w-[230px] h-[110px] md:h-[125px] flex-shrink-0 relative overflow-hidden">
-                <img
-                    src={getValidImageUrl(image)}
-                    alt={title}
-                    className="w-full h-full object-cover transition-transform duration-500"
-                    loading="lazy"
-                />
-                {isEpisode && (
-                    <div className="absolute bottom-1 right-1 bg-black/80 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
-                        {isRtl ? `حلقة ${episodeNum}` : `Ep ${episodeNum}`}
-                    </div>
-                )}
-            </div>
-            <div className="flex-1 flex flex-col items-start py-0 md:py-2 text-right w-full min-w-0 px-2 lg:px-0">
-                <h3 className="text-sm md:text-lg font-bold text-gray-900 dark:text-white mb-1 md:mb-3 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors leading-tight line-clamp-2 md:line-clamp-1">
-                    {title} {isEpisode && <span className="text-gray-500 font-medium">({isRtl ? `الحلقة ${episodeNum}` : `Episode ${episodeNum}`})</span>}
-                </h3>
-                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-2 md:line-clamp-3 mb-2 font-normal">
-                    {description}
-                </p>
-                <div className="mt-auto flex items-center gap-2 md:gap-4 w-full pt-1 md:pt-3">
-                    <span className="text-[10px] md:text-xs font-bold text-black dark:text-white">
-                        {isRtl ? 'مترجم' : 'Translated'}
-                    </span>
-                    {(anime.rating || item.rating) && (
-                        <div className="flex items-center gap-1 text-[10px] md:text-xs text-gray-500">
-                            <span className="text-yellow-500">★</span>
-                            <span>{anime.rating || item.rating}</span>
-                        </div>
-                    )}
-                    <div className="hidden md:block flex-1 text-left rtl:text-left ltr:text-right">
-                        <span className="text-xs text-gray-400 font-mono">
-                            {typeof anime.season === 'string' ? anime.season : (anime.season?.name || 'SEASON 1')}
-                        </span>
-                    </div>
-                </div>
-            </div>
-        </Link>
-    );
-}
+// ─── Grid Item Design ──────────────────────────────────────────────────────────
 
 const CardItem = ({ item, index, type, lang, isHovered, onMouseEnter, onMouseLeave, keepCardOpen }: any) => {
     const isEpisode = type === 'episode';
-    const isAnime = type === 'anime';
-    const showDescription = isEpisode || isAnime;
+
+    const animeObj = item.anime || item.series;
 
     // Logic matching Vue
-    const image = isEpisode ? item.banner || item.image : item.image || item.cover;
-    const title = lang === 'ar' ? (item.title || item.series?.title) : (item.title_en || item.series?.title_en || item.title);
+    const image = animeObj?.cover || item.cover || item.image || item.banner;
+    const title = lang === 'ar' ? (item.title || item.series?.title || item.anime?.title) : (item.title_en || item.series?.title_en || item.title || item.anime?.title_en);
 
     // For episodes, format needs to assume structure
     const displayTitle = title || 'عنوان غير متوفر';
-    const subText = isEpisode ? (item.title || `الحلقة ${item.episode_number}`) : (item.status || 'مستمر');
+    const subText = isEpisode ? (lang === 'ar' ? `الحلقة ${item.episode_number}` : `Episode ${item.episode_number}`) : (lang === 'ar' ? 'ترجمة | دبلجة' : 'Sub | Dub');
 
-    // Description: Arabic or English based on language
-    const description = lang === 'ar'
-        ? (item.description || item.series?.description || item.anime?.description || '')
-        : (item.description_en || item.series?.description_en || item.anime?.description_en || '');
-
-    const year = new Date(item.created_at || Date.now()).getFullYear();
-
-    const animeObj = item.anime || item.series;
     const animeId = animeObj?.id || item.anime_id || item.id;
 
     // SEO Slug Logic
@@ -585,74 +514,33 @@ const CardItem = ({ item, index, type, lang, isHovered, onMouseEnter, onMouseLea
 
     return (
         <div
-            className="group cursor-pointer relative z-0"
+            className="group cursor-pointer relative z-0 flex flex-col"
             onMouseEnter={onMouseEnter}
             onMouseLeave={onMouseLeave}
         >
-            <Link to={targetLink} className={`flex ${isEpisode ? 'flex-row gap-3 md:flex-col md:gap-0' : 'flex-col'} w-full h-full`}>
+            <Link to={targetLink} className="flex flex-col w-full h-full">
                 {/* Cover Container */}
-                <div className={`relative flex-shrink-0 ${isEpisode ? 'w-[140px] md:w-full aspect-video' : 'w-full aspect-[2/3]'} overflow-hidden bg-gray-100 dark:bg-[#1c1c1c] mb-1`}>
+                <div className={`relative flex-shrink-0 w-full aspect-[3/4] overflow-hidden bg-gray-100 dark:bg-[#1c1c1c] transition-transform duration-300`}>
                     <SpinnerImage
                         src={getImageUrl(image)}
                         alt={displayTitle}
                         className="w-full h-full"
-                        imageClassName="object-cover"
+                        imageClassName="object-cover group-hover:scale-105 transition-transform duration-500"
                     />
-
-                    {/* Badges */}
-                    <div className={`absolute top-2 left-2 px-2 py-0.5 text-xs font-bold text-white z-10 ${isEpisode ? 'bg-black/80' : 'bg-black/80'}`}>
-                        {isEpisode ? item.episode_number : (item.type === 'tv' ? 'مسلسل' : 'فيلم')}
-                    </div>
-
                 </div>
 
                 {/* Metadata Below Card */}
-                <div className={`px-0 md:px-1 ${isEpisode ? 'flex-1 flex flex-col items-start text-right py-0 md:py-2' : 'space-y-1 text-center mt-2'}`}>
-                    <h3 className={`font-bold text-gray-900 dark:text-white line-clamp-2 leading-tight ${isEpisode ? 'text-sm md:text-base mb-1' : 'text-sm'}`}>
+                <div className="mt-2.5 text-center flex flex-col items-center flex-1 w-full px-1">
+                    <h3 className="font-bold text-gray-900 dark:text-white text-xs md:text-sm line-clamp-2 leading-relaxed group-hover:text-red-500 transition-colors">
                         {renderEmojiContent(displayTitle)}
                     </h3>
-                    {showDescription && description && (
-                        <p className="text-[12.5px] text-gray-700 dark:text-gray-300 line-clamp-3 md:line-clamp-2 leading-snug text-start mb-1">
-                            {description}
-                        </p>
-                    )}
-                    {isEpisode ? (
-                        <p className="text-lg md:text-xl font-black text-gray-900 dark:text-white mt-1">
-                            {lang === 'ar' ? `الحلقة ${item.episode_number}` : `Episode ${item.episode_number}`}
-                        </p>
-                    ) : (
-                        <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1">
-                            {renderEmojiContent(subText)}
-                        </p>
-                    )}
-                    <div className="flex items-center justify-center gap-3 pt-1">
-                        {isEpisode ? (
-                            <>
-                                <div className="flex items-center gap-1.5 text-gray-900 dark:text-white group-hover:scale-110 transition-transform">
-                                    <ThumbsUp className="w-4 h-4 md:w-5 md:h-5 fill-current" />
-                                    <span className="text-xs md:text-sm font-black">{item.likes_count || 0}</span>
-                                </div>
-                                <div className="flex items-center gap-1 text-gray-900 dark:text-white">
-                                    <span className="text-xs md:text-sm font-black whitespace-nowrap uppercase tracking-wide">
-                                        {item.views_count || 0} {lang === 'ar' ? 'مشاهدة' : 'Views'}
-                                    </span>
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                <div className="flex items-center gap-1 text-yellow-500">
-                                    <Star className="w-3 h-3 fill-current" />
-                                    <span className="text-[10px] font-bold">{item.rating || 'N/A'}</span>
-                                </div>
-                                <span className="text-gray-600">•</span>
-                                <span className="text-[10px] font-bold">{year}</span>
-                            </>
-                        )}
-                    </div>
+                    <p className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium">
+                        {renderEmojiContent(subText)}
+                    </p>
                 </div>
             </Link>
 
-            {/* Hover Card Component - Covers full card with gradient */}
+            {/* Hover Card Component */}
             {isHovered && (
                 <div className="absolute inset-0 z-50 pointer-events-none md:pointer-events-auto">
                     <AnimeHoverCard

@@ -132,7 +132,7 @@ export const PostFeed: React.FC<PostFeedProps> = ({ refreshKey }) => {
 
             {hasMore && (
                 <div ref={ref} className="flex justify-center py-6">
-                    <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                    <Loader2 className="w-12 h-12 animate-spin text-black dark:text-gray-400" />
                 </div>
             )}
 

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { usePreviewStore } from "@/stores/preview-store";
 import { renderEmojiContent } from "@/utils/render-content";
 import { slugify } from "@/utils/slug";
+import { getImageUrl } from '@/utils/image-utils';
 
 interface AnimeHoverCardProps {
     data: any;
@@ -16,14 +17,6 @@ interface AnimeHoverCardProps {
     onPreview?: () => void;
 }
 
-const BASE_URL = '';
-
-const getImageUrl = (path: string) => {
-    if (!path) return '';
-    if (path.startsWith('http')) return path;
-    const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    return `${BASE_URL}${cleanPath}`;
-};
 
 export default function AnimeHoverCard({ data, lang, onMouseEnter, onMouseLeave, onPreview }: AnimeHoverCardProps) {
     const navigate = useNavigate();

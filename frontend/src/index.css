@@ -162,3 +162,21 @@
 .hover-underline-expand:hover::after {
   transform: scaleX(1);
 }
+
+@keyframes comment-highlight {
+  0% {
+    background-color: rgba(59, 130, 246, 0.2);
+  }
+
+  30% {
+    background-color: rgba(59, 130, 246, 0.4);
+  }
+
+  100% {
+    background-color: transparent;
+  }
+}
+
+.animate-comment-highlight {
+  animation: comment-highlight 4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}

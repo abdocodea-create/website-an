@@ -7,12 +7,7 @@ import Modal from '@/components/ui/Modal';
 import SpinnerImage from '@/components/ui/SpinnerImage';
 
 const BASE_URL = '';
-const getImageUrl = (path?: string | null) => {
-    if (!path) return '';
-    if (path.startsWith('http')) return path;
-    const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    return `${BASE_URL}${cleanPath}`;
-};
+import { getImageUrl } from '@/utils/image-utils';
 
 interface FilterAnimeModalProps {
     isOpen: boolean;

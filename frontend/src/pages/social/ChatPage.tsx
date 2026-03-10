@@ -27,6 +27,7 @@ import { toast } from 'sonner';
 import { RichTextInput } from '@/components/comments/RichTextInput';
 import Footer from '@/components/common/Footer';
 import { customEmojis } from '@/lib/customEmojis';
+import { getImageUrl } from '@/utils/image-utils';
 
 interface Message {
     id: number;
@@ -51,11 +52,6 @@ interface Conversation {
     unread_count?: number;
 }
 
-const getImageUrl = (path: string | undefined) => {
-    if (!path) return undefined;
-    if (path.startsWith('http')) return path;
-    return path.startsWith('/') ? path : `/${path}`;
-};
 
 const ChatPage: React.FC = () => {
     const { i18n } = useTranslation();

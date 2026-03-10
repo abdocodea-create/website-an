@@ -4,6 +4,7 @@ import { Download, Clock, Share2, Flag, X } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { WatchLaterButton } from '@/components/common/WatchLaterButton';
+import { getImageUrl } from '@/utils/image-utils';
 
 interface EpisodeInfoMenuProps {
     episode: any;
@@ -36,13 +37,6 @@ export function EpisodeInfoMenu({ episode, anime, onDownload, onReport, onShare,
     // Ensure we check all possible image sources
     const thumbnail = episode.thumbnail || episode.banner || anime.cover || anime.banner;
 
-    // Helper for image URLs
-    const getImageUrl = (url: string) => {
-        if (!url) return '/placeholder-episode.jpg'; // Fallback
-        if (url.startsWith('http')) return url;
-        // If it's a relative path, ensure it starts with /
-        return url.startsWith('/') ? url : `/${url}`;
-    };
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>

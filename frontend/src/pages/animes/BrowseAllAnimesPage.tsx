@@ -8,10 +8,14 @@ import { cn } from '@/lib/utils';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Link, useSearchParams } from 'react-router-dom';
 import AnimeListHoverCard from '@/components/AnimeListHoverCard';
+import AnimeHoverCard from '@/components/AnimeHoverCard';
 import { SocialNavSidebar } from '@/components/social/SocialNavSidebar';
 import { NewsTicker } from '@/components/common/NewsTicker';
 import Footer from '@/components/common/Footer';
 import CentralSpinner from '@/components/ui/CentralSpinner';
+import SpinnerImage from '@/components/ui/SpinnerImage';
+import { renderEmojiContent } from '@/utils/render-content';
+import { slugify } from '@/utils/slug';
 
 export default function BrowseAllAnimesPage() {
     const { t, i18n } = useTranslation();
@@ -92,9 +96,14 @@ export default function BrowseAllAnimesPage() {
                 <CentralSpinner className="min-h-screen" />
             ) : (
                 <>
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-visible max-w-[1400px] mx-auto transition-all duration-300">
-                        {/* Main Content - Full Width */}
-                        <div className="px-3 md:px-8 pb-8 transition-all duration-300 col-span-1 lg:col-span-12">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-visible transition-all duration-300">
+                        {/* Left Sidebar - narrower width */}
+                        <div className="hidden lg:block lg:col-span-2 sticky top-[105px] h-[calc(100vh-105px)] overflow-y-auto custom-scrollbar bg-transparent z-30">
+                            <SocialNavSidebar />
+                        </div>
+
+                        {/* Main Content - 10 Columns */}
+                        <div className="px-3 md:px-8 pb-8 transition-all duration-300 col-span-1 lg:col-span-10">
                             {/* Header Section */}
                             <div className="flex flex-col gap-8 mb-12">
                                 {/* Top Bar: Filters & Title */}
@@ -153,28 +162,25 @@ export default function BrowseAllAnimesPage() {
                             </div>
 
                             {/* List Container */}
-                            <div className="flex flex-col gap-6">
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-x-4 gap-y-8">
                                 {allAnimes.length > 0 ? (
                                     allAnimes.map((anime: any, index: number) => (
-                                        <div
+                                        <CardItem
                                             key={anime.id}
-                                            className="relative group"
+                                            item={anime}
+                                            index={index}
+                                            type="anime"
+                                            lang={lang}
+                                            isHovered={hoveredCardIndex === index}
                                             onMouseEnter={() => handleMouseEnter(index)}
                                             onMouseLeave={handleMouseLeave}
-                                        >
-                                            <ListItem anime={anime} lang={lang} isRtl={isRtl} />
-
-                                            {hoveredCardIndex === index && (
-                                                <div className={cn(
-                                                    "absolute top-0 z-20 h-auto min-h-full left-0 right-0 w-full"
-                                                )}>
-                                                    <AnimeListHoverCard data={anime} lang={lang} className="h-full w-full" />
-                                                </div>
-                                            )}
-                                        </div>
+                                            keepCardOpen={() => {
+                                                if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+                                            }}
+                                        />
                                     ))
                                 ) : (
-                                    <div className="text-center py-20 text-gray-500">
+                                    <div className="col-span-full text-center py-20 text-gray-500">
                                         {isRtl ? 'لا توجد نتائج' : 'No results found'}
                                     </div>
                                 )}
@@ -208,68 +214,73 @@ export default function BrowseAllAnimesPage() {
     );
 }
 
-// Separate Component for List Item
-function ListItem({ anime, lang, isRtl }: { anime: any; lang: string; isRtl: boolean }) {
-    const title = lang === 'ar' ? (anime.title || anime.title_en) : (anime.title_en || anime.title);
-    const description = lang === 'ar'
-        ? (anime.description || anime.series?.description || 'لا يوجد وصف متاح')
-        : (anime.description_en || anime.series?.description_en || 'No description available');
+// ─── Grid Item Design ──────────────────────────────────────────────────────────
 
-    // Fallback images
-    const image = anime.cover || anime.banner;
+const CardItem = ({ item, index, type, lang, isHovered, onMouseEnter, onMouseLeave, keepCardOpen }: any) => {
+    const isEpisode = type === 'episode';
+
+    const animeObj = item.anime || item.series;
+
+    // Logic matching Vue
+    const image = animeObj?.cover || item.cover || item.image || item.banner;
+    const title = lang === 'ar' ? (item.title || item.series?.title || item.anime?.title) : (item.title_en || item.series?.title_en || item.title || item.anime?.title_en);
+
+    // For episodes, format needs to assume structure
+    const displayTitle = title || 'عنوان غير متوفر';
+    const subText = isEpisode ? (lang === 'ar' ? `الحلقة ${item.episode_number}` : `Episode ${item.episode_number}`) : (lang === 'ar' ? 'ترجمة | دبلجة' : 'Sub | Dub');
+
+    const animeId = animeObj?.id || item.anime_id || item.id;
+
+    // SEO Slug Logic
+    const animeTitleForSlug = lang === 'ar' ? (animeObj?.title || item.title) : (animeObj?.title_en || item.title_en || item.title);
+    const slug = slugify(animeTitleForSlug);
+
+    const targetLink = isEpisode
+        ? `/${lang}/watch/${animeId}/${item.episode_number}/${slug}`
+        : `/${lang}/animes/${item.id}/${slug}`;
 
     return (
-        <Link
-            to={`/${lang}/animes/${anime.id}`}
-            className="group flex flex-row gap-3 md:gap-6 bg-transparent hover:bg-gray-50 dark:hover:bg-neutral-900/40 transition-colors duration-200 relative z-10"
+        <div
+            className="group cursor-pointer relative z-0 flex flex-col"
+            onMouseEnter={onMouseEnter}
+            onMouseLeave={onMouseLeave}
         >
-            {/* Image Section - Responsive Width */}
-            <div className="w-[170px] md:w-[230px] h-[110px] md:h-[125px] flex-shrink-0 relative overflow-hidden rounded-none md:rounded-none">
-                <img
-                    src={getValidImageUrl(image)}
-                    alt={title}
-                    className="w-full h-full object-cover transition-transform duration-500"
-                    loading="lazy"
-                />
-
-            </div>
-
-            {/* Content Section */}
-            <div className="flex-1 flex flex-col items-start py-0 md:py-2 text-right w-full min-w-0">
-                {/* Title */}
-                <h3 className="text-sm md:text-lg font-bold text-gray-900 dark:text-white mb-1 md:mb-3 group-hover:text-black dark:group-hover:text-white transition-colors leading-tight line-clamp-2 md:line-clamp-1">
-                    {title}
-                </h3>
-
-                {/* Description */}
-                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-2 md:line-clamp-3 mb-2 font-normal pl-0 md:pl-4 rtl:pr-0 rtl:pl-0 md:rtl:pl-4">
-                    {description}
-                </p>
-
-                {/* Footer / Tags */}
-                <div className="mt-auto flex items-center gap-2 md:gap-4 w-full pt-1 md:pt-3">
-                    <span className="text-[10px] md:text-xs font-bold text-black dark:text-white">
-                        {isRtl ? 'مترجم' : 'Translated'}
-                    </span>
-
-                    {anime.rating && (
-                        <div className="flex items-center gap-1 text-[10px] md:text-xs text-gray-500">
-                            <span className="text-yellow-500">★</span>
-                            <span>{anime.rating}</span>
-                        </div>
-                    )}
-
-                    <div className="hidden md:block flex-1 text-left rtl:text-left ltr:text-right">
-                        <span className="text-xs text-gray-400 font-mono">
-                            {typeof anime.season === 'string' ? anime.season : (anime.season?.name || 'SEASON 1')}
-                        </span>
-                    </div>
+            <Link to={targetLink} className="flex flex-col w-full h-full">
+                {/* Cover Container */}
+                <div className={`relative flex-shrink-0 w-full ${isEpisode ? 'aspect-video' : 'aspect-[3/4]'} overflow-hidden bg-gray-100 dark:bg-[#1c1c1c] transition-transform duration-300`}>
+                    <SpinnerImage
+                        src={getValidImageUrl(image)}
+                        alt={displayTitle}
+                        className="w-full h-full"
+                        imageClassName="object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
                 </div>
-            </div>
-        </Link>
-    );
 
-}
+                {/* Metadata Below Card */}
+                <div className="mt-2.5 text-center flex flex-col items-center flex-1 w-full px-1">
+                    <h3 className="font-bold text-gray-900 dark:text-white text-xs md:text-sm line-clamp-2 leading-relaxed group-hover:text-red-500 transition-colors">
+                        {renderEmojiContent(displayTitle)}
+                    </h3>
+                    <p className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium">
+                        {renderEmojiContent(subText)}
+                    </p>
+                </div>
+            </Link>
+
+            {/* Hover Card Component */}
+            {isHovered && (
+                <div className="absolute inset-0 z-50 pointer-events-none md:pointer-events-auto">
+                    <AnimeHoverCard
+                        data={item}
+                        lang={lang}
+                        onMouseEnter={keepCardOpen}
+                        onMouseLeave={onMouseLeave}
+                    />
+                </div>
+            )}
+        </div>
+    );
+};
 
 // Helper (reused)
 const BASE_URL = '';

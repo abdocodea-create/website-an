@@ -63,9 +63,10 @@ export const getImageUrl = (path?: string | null) => {
 
     // If it's a local upload, prepend the API URL if available
     if (cleanPath.startsWith('/uploads/')) {
-        const apiUrl = import.meta.env.VITE_API_URL || '';
+        let apiUrl = import.meta.env.VITE_API_URL || '';
         if (apiUrl) {
-            // Ensure no double slash if apiUrl ends with slash
+            // Ensure no double slash and remove trailing /api since uploads are served at root
+            apiUrl = apiUrl.replace(/\/api\/?$/, '');
             const base = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
             return `${base}${cleanPath}`;
         }

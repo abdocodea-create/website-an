@@ -32,6 +32,31 @@ func NewPostHandler(postService port.PostService, userRepo port.UserRepository, 
 	}
 }
 
+// GetPostByIDHandler fetches a single post by its ID
+func (h *PostHandler) GetPostByIDHandler(c *gin.Context) {
+	postID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid post ID"})
+		return
+	}
+
+	post, err := h.postService.GetPostByID(uint(postID))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Post not found"})
+		return
+	}
+
+	// Format response to include is_liked for current user
+	userIDValue, exists := c.Get("user_id")
+	if exists {
+		if currentUserID, ok := userIDValue.(uint); ok {
+			h.formatPostResponse(post, currentUserID)
+		}
+	}
+
+	c.JSON(http.StatusOK, post)
+}
+
 // GetFeed gets the paginated list of posts for the community page
 func (h *PostHandler) GetFeed(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
@@ -218,8 +243,9 @@ func (h *PostHandler) CreatePostComment(c *gin.Context) {
 	}
 
 	var req struct {
-		Content  string `json:"content" binding:"required"`
-		ParentID *uint  `json:"parent_id"`
+		Content       string `json:"content" binding:"required"`
+		ParentID      *uint  `json:"parent_id"`
+		MentionUserID *uint  `json:"mention_user_id"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -227,11 +253,76 @@ func (h *PostHandler) CreatePostComment(c *gin.Context) {
 		return
 	}
 
-	comment, err := h.postService.CreateComment(userID, uint(postID), req.ParentID, req.Content)
+	comment, err := h.postService.CreateComment(userID, uint(postID), req.ParentID, req.MentionUserID, req.Content)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	// Fetch full comment with preloaded User to ensure avatar is sent
+	if fullComment, err := h.postService.GetCommentByID(comment.ID); err == nil {
+		comment = fullComment
+	}
+
+	// NOTIFICATION LOGIC
+	if comment.ParentID != nil {
+		parent, err := h.postService.GetCommentByID(*comment.ParentID)
+		if err == nil {
+			// Rich metadata for notifications
+			postOwner, _ := h.postService.GetPostByID(uint(postID))
+
+			actorName := "User"
+			actorAvatar := ""
+			if comment.User != nil {
+				actorName = comment.User.Name
+				actorAvatar = comment.User.Avatar
+			}
+
+			dataPayload := gin.H{
+				"comment_id":      comment.ID,
+				"parent_id":       parent.ID,
+				"actor_id":        userID,
+				"actor_name":      actorName,
+				"actor_avatar":    actorAvatar,
+				"comment_content": parent.Content,
+				"reply_content":   comment.Content,
+				"post_id":         postID,
+			}
+			if postOwner != nil {
+				dataPayload["post_content"] = postOwner.Content
+			}
+			dataJSON, _ := json.Marshal(dataPayload)
+
+			// 1. Notify Parent Owner
+			if parent.UserID != userID {
+				notif := &domain.Notification{
+					UserID: parent.UserID,
+					Type:   domain.NotificationTypeReply,
+					Data:   dataJSON,
+				}
+				h.notifRepo.Create(notif)
+				h.hub.SendToUser(parent.UserID, gin.H{"type": "notification", "data": notif})
+			}
+
+			// 2. Notify Mentioned User
+			if comment.MentionUserID != nil && *comment.MentionUserID != userID && *comment.MentionUserID != parent.UserID {
+				notif := &domain.Notification{
+					UserID: *comment.MentionUserID,
+					Type:   domain.NotificationTypeReply,
+					Data:   dataJSON,
+				}
+				h.notifRepo.Create(notif)
+				h.hub.SendToUser(*comment.MentionUserID, gin.H{"type": "notification", "data": notif})
+			}
+		}
+	}
+
+	// Broadcast to post topic for real-time updates
+	topic := "post:" + c.Param("id")
+	h.hub.BroadcastToTopic(topic, gin.H{
+		"type": "comment",
+		"data": comment,
+	})
 
 	c.JSON(http.StatusCreated, comment)
 }
@@ -272,6 +363,50 @@ func (h *PostHandler) ToggleCommentLike(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to toggle interaction"})
 		return
+	}
+
+	target, fetchErr := h.postService.GetCommentByID(uint(commentID))
+	if fetchErr == nil {
+		// NOTIFICATION LOGIC: Post Comment Like
+		if req.IsLike && target.UserID != userID {
+			actor, _ := h.userRepo.GetUserByID(userID)
+			actorName := "User"
+			actorAvatar := ""
+			if actor != nil {
+				actorName = actor.Name
+				actorAvatar = actor.Avatar
+			}
+
+			dataPayload := gin.H{
+				"comment_id":      target.ID,
+				"parent_id":       target.ParentID,
+				"actor_id":        userID,
+				"actor_name":      actorName,
+				"actor_avatar":    actorAvatar,
+				"comment_content": target.Content,
+				"post_id":         target.PostID,
+			}
+			dataJSON, _ := json.Marshal(dataPayload)
+
+			notif := &domain.Notification{
+				UserID: target.UserID,
+				Type:   domain.NotificationTypeLike,
+				Data:   dataJSON,
+			}
+			h.notifRepo.Create(notif)
+			h.hub.SendToUser(target.UserID, gin.H{"type": "notification", "data": notif})
+		}
+
+		// Broadcast like update to post topic (For real-time count updates)
+		topic := "post:" + strconv.Itoa(int(target.PostID))
+		h.hub.BroadcastToTopic(topic, gin.H{
+			"type": "comment_like",
+			"data": gin.H{
+				"comment_id": commentID,
+				"is_like":    req.IsLike,
+				"user_id":    userID,
+			},
+		})
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Interaction updated"})

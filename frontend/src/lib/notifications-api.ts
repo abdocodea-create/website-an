@@ -33,6 +33,7 @@ export interface NotificationData {
     anime_id?: number;
     anime_title?: string;
     anime_image?: string;
+    post_id?: number;
 }
 
 export interface Notification {

@@ -20,7 +20,7 @@ func (s *RoleService) GetAll() ([]domain.Role, error) {
 }
 
 func (s *RoleService) Create(name string, permissionIDs []uint) error {
-	existing, _ := s.repo.GetByName(name)
+	existing, _ := s.repo.GetRoleByName(name)
 	if existing != nil {
 		return errors.New("role already exists")
 	}
@@ -69,6 +69,10 @@ func (s *RoleService) Update(id uint, name string, permissionIDs []uint) error {
 
 func (s *RoleService) Delete(id uint) error {
 	return s.repo.DeleteRole(id)
+}
+
+func (s *RoleService) GetRoleByName(name string) (*domain.Role, error) {
+	return s.repo.GetRoleByName(name)
 }
 
 func (s *RoleService) Search(query string) ([]domain.Role, error) {

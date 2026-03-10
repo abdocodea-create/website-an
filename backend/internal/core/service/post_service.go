@@ -63,15 +63,16 @@ func (s *postService) TogglePostLike(userID, postID uint) (bool, error) {
 	return s.repo.TogglePostLike(userID, postID)
 }
 
-func (s *postService) CreateComment(userID, postID uint, parentID *uint, content string) (*domain.PostComment, error) {
+func (s *postService) CreateComment(userID, postID uint, parentID, mentionUserID *uint, content string) (*domain.PostComment, error) {
 	if content == "" {
 		return nil, errors.New("comment content cannot be empty")
 	}
 
 	comment := &domain.PostComment{
-		UserID:  userID,
-		PostID:  postID,
-		Content: content,
+		UserID:        userID,
+		PostID:        postID,
+		Content:       content,
+		MentionUserID: mentionUserID,
 	}
 	if parentID != nil && *parentID > 0 {
 		comment.ParentID = parentID
@@ -82,6 +83,10 @@ func (s *postService) CreateComment(userID, postID uint, parentID *uint, content
 	}
 
 	return s.repo.GetCommentByID(comment.ID)
+}
+
+func (s *postService) GetCommentByID(id uint) (*domain.PostComment, error) {
+	return s.repo.GetCommentByID(id)
 }
 
 func (s *postService) DeleteComment(userID, commentID uint) error {

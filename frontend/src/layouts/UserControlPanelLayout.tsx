@@ -6,6 +6,7 @@ import { Header } from '@/components/header/Header';
 import { useState, useEffect } from 'react';
 import CrunchyrollSkeleton from '@/components/skeleton/CrunchyrollSkeleton';
 import { useAuthStore } from '@/stores/auth-store';
+import { getImageUrl } from '@/utils/image-utils';
 import { useNotificationsStore } from '@/stores/notifications-store';
 import api from '@/lib/api';
 
@@ -43,9 +44,7 @@ export function UserControlPanelLayout() {
     }, []);
 
     const getAvatarUrl = (avatar: string | undefined) => {
-        if (!avatar) return undefined;
-        if (avatar.startsWith('http')) return avatar;
-        return avatar.startsWith('/') ? avatar : `/${avatar}`;
+        return getImageUrl(avatar);
     };
 
     interface SidebarItem {

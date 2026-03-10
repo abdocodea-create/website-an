@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import api from '@/lib/api';
+import { getImageUrl } from '@/utils/image-utils';
 import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
 import { SocialNavSidebar } from '@/components/social/SocialNavSidebar';
@@ -26,9 +28,7 @@ export default function CommunityPage() {
     }, []);
 
     const getAvatarUrl = (avatar?: string) => {
-        if (!avatar) return '';
-        if (avatar.startsWith('http')) return avatar;
-        return avatar.startsWith('/') ? avatar : `/${avatar}`;
+        return getImageUrl(avatar);
     };
 
     return (
@@ -37,12 +37,15 @@ export default function CommunityPage() {
                 <title>{isAr ? 'المجتمع - AnimeLast' : 'Community - AnimeLast'}</title>
             </Helmet>
 
-            <NewsTicker />
+            {/* Sticky NewsTicker at top below header (60px) */}
+            <div className="sticky top-[60px] z-[40] bg-white dark:bg-black w-full border-b border-gray-100 dark:border-white/5">
+                <NewsTicker />
+            </div>
 
-            <div className="w-full">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-visible">
+            <div className="w-full min-h-screen">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-visible min-h-screen">
                     {/* Left Sidebar */}
-                    <div className="hidden lg:block lg:col-span-3 sticky top-[105px] h-[calc(100vh-105px)] overflow-y-auto custom-scrollbar bg-transparent">
+                    <div className="hidden lg:block lg:col-span-3 sticky top-[105px] h-[calc(100vh-105px)] overflow-y-auto custom-scrollbar bg-transparent z-30">
                         <SocialNavSidebar />
                     </div>
 
@@ -85,7 +88,7 @@ export default function CommunityPage() {
                     </div>
 
                     {/* Right Sidebar */}
-                    <div className="hidden lg:block lg:col-span-3 sticky top-[105px] h-[calc(100vh-105px)] overflow-y-auto custom-scrollbar bg-transparent">
+                    <div className="hidden lg:block lg:col-span-3 sticky top-[105px] h-[calc(100vh-105px)] overflow-y-auto custom-scrollbar bg-transparent z-30">
                         <FriendsSidebar />
                     </div>
                 </div>

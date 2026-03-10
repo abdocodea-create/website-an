@@ -5,6 +5,7 @@ import (
 	"backend/internal/core/port"
 	"context"
 	"fmt"
+	"log"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -25,6 +26,8 @@ var _ port.SeasonRepository = &SQLiteRepository{}
 var _ port.StudioRepository = &SQLiteRepository{}
 var _ port.LanguageRepository = &SQLiteRepository{}
 var _ port.AnimeRepository = &SQLiteRepository{}
+var _ port.CountryRepository = &SQLiteRepository{}
+var _ port.ServerRepository = &SQLiteRepository{}
 
 func (r *SQLiteRepository) DB() *gorm.DB {
 	return r.db
@@ -47,10 +50,18 @@ func NewSQLiteRepository(dbUrl string) (*SQLiteRepository, error) {
 		&domain.Friendship{}, &domain.Block{},
 		&domain.Post{}, &domain.PostImage{}, &domain.PostLike{},
 		&domain.PostComment{}, &domain.PostCommentLike{},
+		&domain.Country{}, &domain.Server{},
 	)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to migrate database: %w", err)
+	}
+
+	// Manual Migration for new columns since SQLite AutoMigrate sometimes fails to add them
+	err = db.Exec("ALTER TABLE comments ADD COLUMN mention_user_id INTEGER").Error
+	if err != nil {
+		// Ignore error if column already exists (sqlite error "duplicate column name")
+		log.Printf("DB Migration Note (comments.mention_user_id): %v - (This is normal if column exists)", err)
 	}
 
 	return &SQLiteRepository{db: db}, nil
@@ -70,6 +81,14 @@ func (r *SQLiteRepository) CreateUser(user *domain.User) error {
 func (r *SQLiteRepository) GetByEmail(email string) (*domain.User, error) {
 	var user domain.User
 	if err := r.db.Preload("Role").Preload("Role.Permissions").Where("email = ?", email).First(&user).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *SQLiteRepository) GetUserByName(name string) (*domain.User, error) {
+	var user domain.User
+	if err := r.db.Preload("Role").Preload("Role.Permissions").Where("name = ?", name).First(&user).Error; err != nil {
 		return nil, err
 	}
 	return &user, nil
@@ -182,7 +201,7 @@ func (r *SQLiteRepository) GetBlock(blockerID, blockedID uint) (*domain.Block, e
 
 // --- Role Repository ---
 
-func (r *SQLiteRepository) GetByName(name string) (*domain.Role, error) {
+func (r *SQLiteRepository) GetRoleByName(name string) (*domain.Role, error) {
 	var role domain.Role
 	if err := r.db.Preload("Permissions").Where("name = ?", name).First(&role).Error; err != nil {
 		return nil, err
@@ -710,4 +729,76 @@ func (r *SQLiteRepository) GetTopAnimes(ctx context.Context, limit int) ([]map[s
 	}
 
 	return results, nil
+}
+
+// Country Repository Implementation
+
+func (r *SQLiteRepository) CreateCountry(country *domain.Country) error {
+	return r.db.Create(country).Error
+}
+
+func (r *SQLiteRepository) GetCountryByID(id uint) (*domain.Country, error) {
+	var country domain.Country
+	err := r.db.First(&country, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &country, nil
+}
+
+func (r *SQLiteRepository) GetAllCountries(search string) ([]domain.Country, error) {
+	var countries []domain.Country
+	db := r.db
+	if search != "" {
+		pattern := "%" + search + "%"
+		db = db.Where("name_ar LIKE ? OR name_en LIKE ? OR code LIKE ?", pattern, pattern, pattern)
+	}
+	err := db.Order("name_en asc").Find(&countries).Error
+	return countries, err
+}
+
+func (r *SQLiteRepository) UpdateCountry(country *domain.Country) error {
+	return r.db.Save(country).Error
+}
+
+func (r *SQLiteRepository) DeleteCountry(id uint) error {
+	return r.db.Delete(&domain.Country{}, id).Error
+}
+
+func (r *SQLiteRepository) SearchCountries(query string) ([]domain.Country, error) {
+	return r.GetAllCountries(query)
+}
+
+// --- Server Repository Implementation ---
+
+func (r *SQLiteRepository) CreateServer(server *domain.Server) error {
+	return r.db.Create(server).Error
+}
+
+func (r *SQLiteRepository) GetServerByID(id uint) (*domain.Server, error) {
+	var server domain.Server
+	err := r.db.First(&server, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &server, nil
+}
+
+func (r *SQLiteRepository) GetAllServers(search string) ([]domain.Server, error) {
+	var servers []domain.Server
+	db := r.db
+	if search != "" {
+		pattern := "%" + search + "%"
+		db = db.Where("name_ar LIKE ? OR name_en LIKE ? OR type LIKE ?", pattern, pattern, pattern)
+	}
+	err := db.Order("created_at desc").Find(&servers).Error
+	return servers, err
+}
+
+func (r *SQLiteRepository) UpdateServer(server *domain.Server) error {
+	return r.db.Save(server).Error
+}
+
+func (r *SQLiteRepository) DeleteServer(id uint) error {
+	return r.db.Delete(&domain.Server{}, id).Error
 }

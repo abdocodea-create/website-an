@@ -11,14 +11,7 @@ import api from '@/lib/api';
 import { slugify } from "@/utils/slug";
 import SpinnerImage from '@/components/ui/SpinnerImage';
 
-// Helper for image URLs
-const BASE_URL = '';
-const getImageUrl = (path?: string | null) => {
-    if (!path) return '';
-    if (path.startsWith('http')) return path;
-    const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    return `${BASE_URL}${cleanPath}`;
-};
+import { getImageUrl } from '@/utils/image-utils';
 
 interface MobileMenuProps {
     isOpen?: boolean;
@@ -32,7 +25,6 @@ export function MobileMenu({ isOpen: controlledIsOpen, onOpenChange }: MobileMen
     const { appName, logoUrl } = useSettingsStore();
     const isRtl = i18n.language === 'ar';
     const [internalIsOpen, setInternalIsOpen] = useState(false);
-    const [isAnimesOpen, setIsAnimesOpen] = useState(false); // State for Animes accordion
     const [isCategoriesOpen, setIsCategoriesOpen] = useState(false); // State for Categories accordion
 
     // Data state
@@ -92,7 +84,6 @@ export function MobileMenu({ isOpen: controlledIsOpen, onOpenChange }: MobileMen
     // Close on route change
     useEffect(() => {
         setIsOpen(false);
-        setIsAnimesOpen(false); // Reset accordion on close
         setIsCategoriesOpen(false); // Reset categories accordion on close
     }, [location.pathname]);
 
@@ -220,192 +211,174 @@ export function MobileMenu({ isOpen: controlledIsOpen, onOpenChange }: MobileMen
                                     <Film className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
                                 </button>
 
-                                {/* Anime Accordion */}
-                                <div className="flex flex-col">
-                                    <button
-                                        onClick={() => setIsAnimesOpen(!isAnimesOpen)}
-                                        className={cn(
-                                            "focus:bg-gray-100 dark:focus:bg-[#1a1a1a] cursor-pointer rounded-none flex items-center justify-end w-full px-5 py-3 gap-4 group transition-colors hover:bg-gray-100 dark:hover:bg-[#1a1a1a]",
-                                            isAnimesOpen && "bg-gray-50 dark:bg-[#151515]"
-                                        )}
-                                    >
-                                        <span className="text-base font-medium text-gray-700 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white transition-colors">
-                                            {isRtl ? 'أنميات' : 'Animes'}
-                                        </span>
-                                        <Monitor className="w-5 h-5 text-gray-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
-                                    </button>
+                                {/* Anime Content (Always Visible) */}
+                                <div className="flex flex-col bg-gray-50 dark:bg-[#151515] pb-4">
+                                    {/* Sub Links */}
+                                    <div className="flex flex-col border-b border-gray-100 dark:border-[#2a2a2a] mb-4">
+                                        <button
+                                            onClick={() => handleNavigation('/browse')}
+                                            className="flex items-center justify-end w-full px-8 py-3 gap-3 hover:bg-black/5 dark:hover:bg-white/5"
+                                        >
+                                            <span className="text-sm font-bold text-gray-600 dark:text-gray-300">{isRtl ? 'تصفح الكل' : 'Browse All'}</span>
+                                        </button>
+                                        <button
+                                            onClick={() => handleNavigation('/animes')}
+                                            className="flex items-center justify-end w-full px-8 py-3 gap-3 hover:bg-black/5 dark:hover:bg-white/5"
+                                        >
+                                            <span className="text-sm font-bold text-gray-600 dark:text-gray-300">{isRtl ? 'جديد' : 'New'}</span>
+                                        </button>
+                                        <button
+                                            onClick={() => setIsCategoriesOpen(!isCategoriesOpen)}
+                                            className="flex items-center justify-end w-full px-8 py-3 gap-3 hover:bg-black/5 dark:hover:bg-white/5"
+                                        >
+                                            <span className="text-sm font-bold text-gray-600 dark:text-gray-300">{isRtl ? 'الفئات' : 'Categories'}</span>
+                                        </button>
+                                    </div>
 
-                                    {/* Expanded Content */}
-                                    {isAnimesOpen && (
-                                        <div className="bg-gray-50 dark:bg-[#151515] pb-4">
-                                            {/* Sub Links */}
-                                            <div className="flex flex-col border-b border-gray-100 dark:border-[#2a2a2a] mb-4">
-                                                <button
-                                                    onClick={() => handleNavigation('/browse')}
-                                                    className="flex items-center justify-end w-full px-8 py-3 gap-3 hover:bg-black/5 dark:hover:bg-white/5"
-                                                >
-                                                    <span className="text-sm font-bold text-gray-600 dark:text-gray-300">{isRtl ? 'تصفح الكل' : 'Browse All'}</span>
-                                                </button>
-                                                <button
-                                                    onClick={() => handleNavigation('/animes')}
-                                                    className="flex items-center justify-end w-full px-8 py-3 gap-3 hover:bg-black/5 dark:hover:bg-white/5"
-                                                >
-                                                    <span className="text-sm font-bold text-gray-600 dark:text-gray-300">{isRtl ? 'جديد' : 'New'}</span>
-                                                </button>
-                                                <button
-                                                    onClick={() => setIsCategoriesOpen(!isCategoriesOpen)}
-                                                    className="flex items-center justify-end w-full px-8 py-3 gap-3 hover:bg-black/5 dark:hover:bg-white/5"
-                                                >
-                                                    <span className="text-sm font-bold text-gray-600 dark:text-gray-300">{isRtl ? 'الفئات' : 'Categories'}</span>
-                                                </button>
-                                            </div>
-
-                                            {/* Categories Grid (Expandable) */}
-                                            {isCategoriesOpen && categories && categories.length > 0 && (
-                                                <div className="px-4 py-4 space-y-2">
-                                                    <h4 className="text-xs font-bold text-gray-500 uppercase text-right px-1 mb-3">
-                                                        {isRtl ? 'جميع الفئات' : 'All Categories'}
-                                                    </h4>
-                                                    <div className="grid grid-cols-2 gap-2">
-                                                        {categories.map((category: any) => (
-                                                            <button
-                                                                key={category.id}
-                                                                onClick={() => handleNavigation(`/browse?categoryId=${category.id}`)}
-                                                                className="flex items-center justify-center px-3 py-2 text-xs font-medium bg-white dark:bg-[#1c1c1c] border border-gray-200 dark:border-[#333] hover:border-black hover:text-black dark:hover:text-white dark:hover:border-white transition-colors text-center"
-                                                            >
-                                                                {isRtl ? category.name : (category.name_en || category.name)}
-                                                            </button>
-                                                        ))}
-                                                    </div>
+                                    {/* Categories Grid (Expandable) */}
+                                    {isCategoriesOpen && categories && categories.length > 0 && (
+                                        <div className="px-4 py-4 space-y-2">
+                                            <h4 className="text-xs font-bold text-gray-500 uppercase text-right px-1 mb-3">
+                                                {isRtl ? 'جميع الفئات' : 'All Categories'}
+                                            </h4>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {categories.map((category: any) => (
                                                     <button
-                                                        onClick={() => handleNavigation('/categories')}
-                                                        className="w-full mt-3 px-3 py-2 text-xs font-bold text-black dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+                                                        key={category.id}
+                                                        onClick={() => handleNavigation(`/browse?categoryId=${category.id}`)}
+                                                        className="flex items-center justify-center px-3 py-2 text-xs font-medium bg-white dark:bg-[#1c1c1c] border border-gray-200 dark:border-[#333] hover:border-black hover:text-black dark:hover:text-white dark:hover:border-white transition-colors text-center"
                                                     >
-                                                        {isRtl ? 'عرض جميع الفئات' : 'View All Categories'}
+                                                        {isRtl ? category.name : (category.name_en || category.name)}
                                                     </button>
-                                                </div>
-                                            )}
-
-                                            {/* VISUAL CONTENT SECTION */}
-                                            <div className="px-1 space-y-8 mt-4">
-
-                                                {/* Latest Animes Accordion Section */}
-                                                {latestAnimes && latestAnimes.length > 0 && (
-                                                    <div className="space-y-4">
-                                                        <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-right px-4">
-                                                            {isRtl ? 'أحدث الأنميات' : 'Latest Animes'}
-                                                        </h4>
-
-                                                        <div className="flex flex-col gap-4">
-                                                            {latestAnimes.slice(0, 4).map((anime) => {
-                                                                const title = isRtl ? (anime.title || anime.title_en) : (anime.title_en || anime.title);
-                                                                const description = isRtl ? (anime.description || '') : (anime.description_en || '');
-                                                                const slug = slugify(title);
-                                                                const year = new Date(anime.created_at || Date.now()).getFullYear();
-
-                                                                return (
-                                                                    <div
-                                                                        key={anime.id}
-                                                                        className="flex flex-row gap-4 px-4 group active:bg-gray-50 dark:active:bg-neutral-900 transition-colors"
-                                                                        onClick={() => handleNavigation(`/animes/${anime.id}/${slug}`)}
-                                                                    >
-                                                                        <div className="w-[100px] aspect-[2/3] flex-shrink-0 overflow-hidden bg-gray-100 dark:bg-[#111] shadow-lg">
-                                                                            <SpinnerImage
-                                                                                src={getImageUrl(anime.image || anime.cover)}
-                                                                                alt={title}
-                                                                                className="w-full h-full"
-                                                                                imageClassName="object-cover"
-                                                                            />
-                                                                        </div>
-                                                                        <div className="flex-1 flex flex-col items-start text-right min-w-0 py-1">
-                                                                            <h5 className="text-sm font-black text-gray-900 dark:text-white line-clamp-1 group-hover:text-primary transition-colors">
-                                                                                {title}
-                                                                            </h5>
-                                                                            <p className="text-[11px] text-gray-500 dark:text-gray-400 line-clamp-3 leading-relaxed text-right mt-1 w-full font-normal">
-                                                                                {description}
-                                                                            </p>
-                                                                            <div className="mt-auto flex items-center justify-end gap-3 pt-2 w-full">
-                                                                                <div className="flex items-center gap-1 text-yellow-500">
-                                                                                    <Star className="w-3 h-3 fill-current" />
-                                                                                    <span className="text-[10px] font-black">{anime.rating || 'N/A'}</span>
-                                                                                </div>
-                                                                                <span className="text-gray-300 text-[10px]">•</span>
-                                                                                <span className="text-[10px] font-black text-gray-400">{year}</span>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {/* Latest Episodes Accordion Section */}
-                                                {latestEpisodes && latestEpisodes.length > 0 && (
-                                                    <div className="space-y-4">
-                                                        <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-right px-4">
-                                                            {isRtl ? 'أحدث الحلقات' : 'Latest Episodes'}
-                                                        </h4>
-
-                                                        <div className="flex flex-col gap-5">
-                                                            {latestEpisodes.map((episode) => {
-                                                                const animeObj = episode.anime || episode.series;
-                                                                const animeTitle = isRtl ? (animeObj?.title || episode.title) : (animeObj?.title_en || episode.title_en || episode.title);
-                                                                const description = isRtl ? (episode.description || animeObj?.description || '') : (episode.description_en || animeObj?.description_en || '');
-                                                                const slug = slugify(animeTitle);
-                                                                const animeId = animeObj?.id || episode.anime_id || episode.id;
-
-                                                                return (
-                                                                    <div
-                                                                        key={episode.id}
-                                                                        className="flex flex-row gap-4 px-4 group active:bg-gray-50 dark:active:bg-neutral-900 transition-colors"
-                                                                        onClick={() => handleNavigation(`/watch/${animeId}/${episode.episode_number}/${slug}`)}
-                                                                    >
-                                                                        <div className="w-[140px] aspect-video flex-shrink-0 overflow-hidden bg-gray-100 dark:bg-[#111] shadow-lg relative">
-                                                                            <SpinnerImage
-                                                                                src={getImageUrl(episode.thumbnail || episode.banner || animeObj?.cover)}
-                                                                                alt={animeTitle}
-                                                                                className="w-full h-full"
-                                                                                imageClassName="object-cover"
-                                                                            />
-                                                                            <div className="absolute top-1 left-1 px-1.5 py-0.5 text-[9px] font-black text-white bg-black/80 uppercase">
-                                                                                {isRtl ? `حلقة ${episode.episode_number}` : `EP ${episode.episode_number}`}
-                                                                            </div>
-                                                                        </div>
-                                                                        <div className="flex-1 flex flex-col items-start text-right min-w-0">
-                                                                            <h5 className="text-[13px] font-black text-gray-900 dark:text-white line-clamp-1 group-hover:text-primary transition-colors">
-                                                                                {animeTitle}
-                                                                            </h5>
-                                                                            <p className="text-[11px] text-gray-500 dark:text-gray-400 line-clamp-2 leading-tight text-right mt-1 w-full font-normal">
-                                                                                {description}
-                                                                            </p>
-                                                                            <div className="mt-1 flex flex-col items-end w-full">
-                                                                                <p className="text-sm font-black text-gray-900 dark:text-white">
-                                                                                    {isRtl ? `الحلقة ${episode.episode_number}` : `Episode ${episode.episode_number}`}
-                                                                                </p>
-                                                                                <div className="flex items-center justify-end gap-3 mt-0.5">
-                                                                                    <div className="flex items-center gap-1 text-gray-400">
-                                                                                        <ThumbsUp className="w-3 h-3" />
-                                                                                        <span className="text-[9px] font-bold">{episode.likes_count || 0}</span>
-                                                                                    </div>
-                                                                                    <div className="flex items-center gap-1 text-gray-400 border-r border-gray-100 dark:border-neutral-800 pr-2 rtl:border-r-0 rtl:pr-0 rtl:border-l rtl:pl-2">
-                                                                                        <span className="text-[9px] font-bold uppercase tracking-widest leading-none">
-                                                                                            {episode.views_count || 0} {isRtl ? 'مشاهدة' : 'Views'}
-                                                                                        </span>
-                                                                                    </div>
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </div>
-                                                )}
-
+                                                ))}
                                             </div>
+                                            <button
+                                                onClick={() => handleNavigation('/categories')}
+                                                className="w-full mt-3 px-3 py-2 text-xs font-bold text-black dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+                                            >
+                                                {isRtl ? 'عرض جميع الفئات' : 'View All Categories'}
+                                            </button>
                                         </div>
                                     )}
+
+                                    {/* VISUAL CONTENT SECTION */}
+                                    <div className="px-1 space-y-8 mt-4">
+
+                                        {/* Latest Animes Accordion Section */}
+                                        {latestAnimes && latestAnimes.length > 0 && (
+                                            <div className="space-y-4">
+                                                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-right px-4">
+                                                    {isRtl ? 'أحدث الأنميات' : 'Latest Animes'}
+                                                </h4>
+
+                                                <div className="flex flex-col gap-4">
+                                                    {latestAnimes.slice(0, 4).map((anime) => {
+                                                        const title = isRtl ? (anime.title || anime.title_en) : (anime.title_en || anime.title);
+                                                        const description = isRtl ? (anime.description || '') : (anime.description_en || '');
+                                                        const slug = slugify(title);
+                                                        const year = new Date(anime.created_at || Date.now()).getFullYear();
+
+                                                        return (
+                                                            <div
+                                                                key={anime.id}
+                                                                className="flex flex-row gap-4 px-4 group active:bg-gray-50 dark:active:bg-neutral-900 transition-colors"
+                                                                onClick={() => handleNavigation(`/animes/${anime.id}/${slug}`)}
+                                                            >
+                                                                <div className="w-[100px] aspect-[2/3] flex-shrink-0 overflow-hidden bg-gray-100 dark:bg-[#111] shadow-lg">
+                                                                    <SpinnerImage
+                                                                        src={getImageUrl(anime.image || anime.cover)}
+                                                                        alt={title}
+                                                                        className="w-full h-full"
+                                                                        imageClassName="object-cover"
+                                                                    />
+                                                                </div>
+                                                                <div className="flex-1 flex flex-col items-start text-right min-w-0 py-1">
+                                                                    <h5 className="text-sm font-black text-gray-900 dark:text-white line-clamp-1 group-hover:text-primary transition-colors">
+                                                                        {title}
+                                                                    </h5>
+                                                                    <p className="text-[11px] text-gray-500 dark:text-gray-400 line-clamp-3 leading-relaxed text-right mt-1 w-full font-normal">
+                                                                        {description}
+                                                                    </p>
+                                                                    <div className="mt-auto flex items-center justify-end gap-3 pt-2 w-full">
+                                                                        <div className="flex items-center gap-1 text-yellow-500">
+                                                                            <Star className="w-3 h-3 fill-current" />
+                                                                            <span className="text-[10px] font-black">{anime.rating || 'N/A'}</span>
+                                                                        </div>
+                                                                        <span className="text-gray-300 text-[10px]">•</span>
+                                                                        <span className="text-[10px] font-black text-gray-400">{year}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Latest Episodes Accordion Section */}
+                                        {latestEpisodes && latestEpisodes.length > 0 && (
+                                            <div className="space-y-4">
+                                                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-right px-4">
+                                                    {isRtl ? 'أحدث الحلقات' : 'Latest Episodes'}
+                                                </h4>
+
+                                                <div className="flex flex-col gap-5">
+                                                    {latestEpisodes.map((episode) => {
+                                                        const animeObj = episode.anime || episode.series;
+                                                        const animeTitle = isRtl ? (animeObj?.title || episode.title) : (animeObj?.title_en || episode.title_en || episode.title);
+                                                        const description = isRtl ? (episode.description || animeObj?.description || '') : (episode.description_en || animeObj?.description_en || '');
+                                                        const slug = slugify(animeTitle);
+                                                        const animeId = animeObj?.id || episode.anime_id || episode.id;
+
+                                                        return (
+                                                            <div
+                                                                key={episode.id}
+                                                                className="flex flex-row gap-4 px-4 group active:bg-gray-50 dark:active:bg-neutral-900 transition-colors"
+                                                                onClick={() => handleNavigation(`/watch/${animeId}/${episode.episode_number}/${slug}`)}
+                                                            >
+                                                                <div className="w-[140px] aspect-video flex-shrink-0 overflow-hidden bg-gray-100 dark:bg-[#111] shadow-lg relative">
+                                                                    <SpinnerImage
+                                                                        src={getImageUrl(episode.thumbnail || episode.banner || animeObj?.cover)}
+                                                                        alt={animeTitle}
+                                                                        className="w-full h-full"
+                                                                        imageClassName="object-cover"
+                                                                    />
+                                                                    <div className="absolute top-1 left-1 px-1.5 py-0.5 text-[9px] font-black text-white bg-black/80 uppercase">
+                                                                        {isRtl ? `حلقة ${episode.episode_number}` : `EP ${episode.episode_number}`}
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex-1 flex flex-col items-start text-right min-w-0">
+                                                                    <h5 className="text-[13px] font-black text-gray-900 dark:text-white line-clamp-1 group-hover:text-primary transition-colors">
+                                                                        {animeTitle}
+                                                                    </h5>
+                                                                    <p className="text-[11px] text-gray-500 dark:text-gray-400 line-clamp-2 leading-tight text-right mt-1 w-full font-normal">
+                                                                        {description}
+                                                                    </p>
+                                                                    <div className="mt-1 flex flex-col items-end w-full">
+                                                                        <p className="text-sm font-black text-gray-900 dark:text-white">
+                                                                            {isRtl ? `الحلقة ${episode.episode_number}` : `Episode ${episode.episode_number}`}
+                                                                        </p>
+                                                                        <div className="flex items-center justify-end gap-3 mt-0.5">
+                                                                            <div className="flex items-center gap-1 text-gray-400">
+                                                                                <ThumbsUp className="w-3 h-3" />
+                                                                                <span className="text-[9px] font-bold">{episode.likes_count || 0}</span>
+                                                                            </div>
+                                                                            <div className="flex items-center gap-1 text-gray-400 border-r border-gray-100 dark:border-neutral-800 pr-2 rtl:border-r-0 rtl:pr-0 rtl:border-l rtl:pl-2">
+                                                                                <span className="text-[9px] font-bold uppercase tracking-widest leading-none">
+                                                                                    {episode.views_count || 0} {isRtl ? 'مشاهدة' : 'Views'}
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                    </div>
                                 </div>
 
                             </div>

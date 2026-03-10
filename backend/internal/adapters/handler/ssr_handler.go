@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -30,8 +32,24 @@ func NewSSRHandler() *SSRHandler {
 
 // StartNodeServer attempts to start the Node.js sidecar
 func (h *SSRHandler) StartNodeServer() {
-	// Path is relative to where the Go binary runs (backend/cmd/server/)
-	cmd := exec.Command("node", "../../../frontend/server.js")
+	_, filename, _, ok := runtime.Caller(0)
+	var frontendDir string
+	if ok {
+		// filename is .../backend/internal/adapters/handler/ssr_handler.go
+		// root is .../backend/
+		backendDir := filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(filename))))
+		// frontend is sibling to backend
+		projectRoot := filepath.Dir(backendDir)
+		frontendDir = filepath.Join(projectRoot, "frontend")
+	} else {
+		frontendDir = "../frontend" // fallback
+	}
+
+	serverJs := filepath.Join(frontendDir, "server.js")
+	fmt.Printf("Starting Node SSR server at: %s\n", serverJs)
+
+	cmd := exec.Command("node", serverJs)
+	cmd.Dir = frontendDir // Run node in the frontend directory so its own relative paths work
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	go func() {
@@ -77,11 +95,19 @@ func (h *SSRHandler) ServeSSR(c *gin.Context) {
 	}
 
 	appHtml, _ := result["html"].(string)
-	// helmetData, _ := result["helmet"].(map[string]interface{}) // TODO: Extract and inject helmet tags for SEO
 
 	// Read index.html from dist
-	// Path is relative to where the Go binary runs (backend/cmd/server/)
-	template, err := os.ReadFile("../../../frontend/dist/client/index.html")
+	_, ssrFile, _, ok := runtime.Caller(0)
+	var templatePath string
+	if ok {
+		backendDir := filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(ssrFile))))
+		projectRoot := filepath.Dir(backendDir)
+		templatePath = filepath.Join(projectRoot, "frontend/dist/client/index.html")
+	} else {
+		templatePath = "../frontend/dist/client/index.html"
+	}
+
+	template, err := os.ReadFile(templatePath)
 
 	if err != nil {
 		// Fallback to local dev path if dist doesn't exist yet?
@@ -117,5 +143,14 @@ func (h *SSRHandler) ServeSSR(c *gin.Context) {
 
 func (h *SSRHandler) serveFallback(c *gin.Context) {
 	// Serve pure static index.html (CSR)
-	c.File("../../../frontend/dist/client/index.html")
+	_, ssrFile, _, ok := runtime.Caller(0)
+	var templatePath string
+	if ok {
+		backendDir := filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(ssrFile))))
+		projectRoot := filepath.Dir(backendDir)
+		templatePath = filepath.Join(projectRoot, "frontend/dist/client/index.html")
+	} else {
+		templatePath = "../frontend/dist/client/index.html"
+	}
+	c.File(templatePath)
 }

@@ -12,12 +12,7 @@ import { renderEmojiContent } from '@/utils/render-content';
 import { cn } from '@/lib/utils';
 
 const BASE_URL = '';
-const getImageUrl = (path?: string | null) => {
-    if (!path) return '';
-    if (path.startsWith('http')) return path;
-    const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    return `${BASE_URL}${cleanPath}`;
-};
+import { getImageUrl } from '@/utils/image-utils';
 
 function WatchlistItem({ item, isRtl, lang, onRemove }: { item: any; isRtl: boolean; lang: string; onRemove: any }) {
     const isEpisode = !!item.episode_id;

@@ -15,15 +15,8 @@ import { SocialNavSidebar } from "@/components/social/SocialNavSidebar";
 import Footer from "@/components/common/Footer";
 import { renderEmojiContent } from "@/utils/render-content";
 import { slugify } from "@/utils/slug";
+import { getImageUrl } from '@/utils/image-utils';
 
-const BASE_URL = '';
-
-const getImageUrl = (path: string) => {
-    if (!path) return '';
-    if (path.startsWith('http')) return path;
-    const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    return `${BASE_URL}${cleanPath}`;
-};
 
 export default function ForeignMediaPage() {
     const { i18n } = useTranslation();

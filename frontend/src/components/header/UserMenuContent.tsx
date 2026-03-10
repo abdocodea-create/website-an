@@ -21,6 +21,8 @@ import {
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuthStore } from '@/stores/auth-store';
+import { Card, CardContent } from '@/components/ui/card';
+import { getImageUrl } from '@/utils/image-utils';
 import { useTheme } from '@/components/theme-provider';
 import { cn } from '@/lib/utils';
 import { useNotificationsStore } from '@/stores/notifications-store';
@@ -66,10 +68,8 @@ export function UserMenuContent({ user, onClose }: UserMenuContentProps) {
         fetchStats();
     }, []);
 
-    const getAvatarUrl = (avatar: string | undefined) => {
-        if (!avatar) return undefined;
-        if (avatar.startsWith('http')) return avatar;
-        return avatar.startsWith('/') ? avatar : `/${avatar}`;
+    const getAvatarUrl = (path: string | undefined) => {
+        return getImageUrl(path);
     };
 
     const handleLogout = () => {

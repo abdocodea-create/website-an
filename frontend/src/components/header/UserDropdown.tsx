@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/components/theme-provider';
 import { cn } from '@/lib/utils';
 import { useNotificationsStore } from '@/stores/notifications-store';
+import { getImageUrl } from '@/utils/image-utils';
 
 interface GuestMenuContentProps {
     onClose?: () => void;
@@ -218,9 +219,7 @@ export function UserDropdown({ isOpen: controlledIsOpen, onOpenChange: controlle
     }, []);
 
     const getAvatarUrl = (avatar: string | undefined) => {
-        if (!avatar) return undefined;
-        if (avatar.startsWith('http')) return avatar;
-        return avatar.startsWith('/') ? avatar : `/${avatar}`;
+        return getImageUrl(avatar);
     };
 
     // Close on navigation

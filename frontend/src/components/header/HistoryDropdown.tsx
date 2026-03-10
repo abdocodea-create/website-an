@@ -5,14 +5,7 @@ import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 import api from '@/lib/api';
 
-// Helper for image URLs
-const BASE_URL = '';
-const getImageUrl = (path?: string | null) => {
-    if (!path) return '';
-    if (path.startsWith('http')) return path;
-    const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    return `${BASE_URL}${cleanPath}`;
-};
+import { getImageUrl } from '@/utils/image-utils';
 
 interface HistoryItem {
     id: number;

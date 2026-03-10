@@ -6,12 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import api from '@/lib/api';
 
 const BASE_URL = '';
-const getImageUrl = (path?: string | null) => {
-    if (!path) return '';
-    if (path.startsWith('http')) return path;
-    const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    return `${BASE_URL}${cleanPath}`;
-};
+import { getImageUrl } from '@/utils/image-utils';
 
 // Helper for relative time display
 const getRelativeTime = (dateString: string, lang: string) => {

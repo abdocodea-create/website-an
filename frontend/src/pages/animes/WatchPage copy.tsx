@@ -35,14 +35,7 @@ import { ShareModal } from '@/components/episodes/ShareModal';
 import { MobileCommentsModal } from '@/components/comments/MobileCommentsModal';
 import { trackEpisodeView, toggleEpisodeReaction, getEpisodeStats, EpisodeStats } from '@/lib/episode-stats-api';
 
-// Helper for image URLs
-const BASE_URL = '';
-const getImageUrl = (path?: string | null) => {
-    if (!path) return '';
-    if (path.startsWith('http')) return path;
-    const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    return `${BASE_URL}${cleanPath}`;
-};
+import { getImageUrl } from '@/utils/image-utils';
 
 // Helper for relative time display
 const getRelativeTime = (dateString: string, lang: string) => {

@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Loader2, Pen } from 'lucide-react';
 import api from '@/lib/api';
+import { getImageUrl } from '@/utils/image-utils';
 
 export default function EditProfilePage() {
     const { user, setUser } = useAuthStore();
@@ -20,7 +21,7 @@ export default function EditProfilePage() {
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
-    const [avatarPreview, setAvatarPreview] = useState<string | null>(user?.avatar || null);
+    const [avatarPreview, setAvatarPreview] = useState<string | null>(getImageUrl(user?.avatar) || null);
 
     const avatarInputRef = useRef<HTMLInputElement>(null);
     const bannerInputRef = useRef<HTMLInputElement>(null);

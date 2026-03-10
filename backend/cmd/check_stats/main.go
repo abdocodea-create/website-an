@@ -51,7 +51,7 @@ type Notification struct {
 func (Notification) TableName() string { return "notifications" }
 
 func main() {
-	db, err := gorm.Open(sqlite.Open("cmd/server/saas.db"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open("../../saas.db"), &gorm.Config{})
 	if err != nil {
 		log.Fatal(err)
 	}

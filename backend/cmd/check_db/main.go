@@ -40,7 +40,7 @@ type Episode struct {
 
 func main() {
 	// Open database
-	db, err := gorm.Open(sqlite.Open("../server/saas.db"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open("../../saas.db"), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("Failed to connect: %v", err)
 	}

@@ -36,19 +36,20 @@ type PostLike struct {
 
 // PostComment represents a user comment on a post
 type PostComment struct {
-	ID        uint          `json:"id" gorm:"primaryKey"`
-	Content   string        `json:"content" gorm:"type:text;not null"`
-	UserID    uint          `json:"user_id" gorm:"not null"`
-	User      *User         `json:"user" gorm:"foreignKey:UserID;references:ID"`
-	PostID    uint          `json:"post_id" gorm:"not null"`
-	Post      *Post         `json:"post" gorm:"foreignKey:PostID;constraint:OnDelete:CASCADE;"`
-	ParentID  *uint         `json:"parent_id,omitempty"` // For nested replies
-	Parent    *PostComment  `json:"parent,omitempty" gorm:"foreignKey:ParentID"`
-	Children  []PostComment `json:"children,omitempty" gorm:"foreignKey:ParentID"`
-	Likes     int           `json:"likes" gorm:"default:0"`
-	Dislikes  int           `json:"dislikes" gorm:"default:0"`
-	CreatedAt time.Time     `json:"created_at"`
-	UpdatedAt time.Time     `json:"updated_at"`
+	ID            uint          `json:"id" gorm:"primaryKey"`
+	Content       string        `json:"content" gorm:"type:text;not null"`
+	UserID        uint          `json:"user_id" gorm:"not null"`
+	User          *User         `json:"user" gorm:"foreignKey:UserID;references:ID"`
+	PostID        uint          `json:"post_id" gorm:"not null"`
+	Post          *Post         `json:"post" gorm:"foreignKey:PostID;constraint:OnDelete:CASCADE;"`
+	ParentID      *uint         `json:"parent_id,omitempty"` // For nested replies
+	Parent        *PostComment  `json:"parent,omitempty" gorm:"foreignKey:ParentID"`
+	MentionUserID *uint         `json:"mention_user_id,omitempty"` // For replying to a specific user inside a reply
+	Children      []PostComment `json:"children,omitempty" gorm:"foreignKey:ParentID"`
+	Likes         int           `json:"likes" gorm:"default:0"`
+	Dislikes      int           `json:"dislikes" gorm:"default:0"`
+	CreatedAt     time.Time     `json:"created_at"`
+	UpdatedAt     time.Time     `json:"updated_at"`
 
 	// Transient
 	UserInteraction *bool `json:"user_interaction,omitempty" gorm:"-"`

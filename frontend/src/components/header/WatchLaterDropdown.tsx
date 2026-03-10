@@ -7,12 +7,7 @@ import { useTranslation } from 'react-i18next';
 
 // Helper for image URLs (duplicated for now, could be in utils)
 const BASE_URL = '';
-const getImageUrl = (path?: string | null) => {
-    if (!path) return '';
-    if (path.startsWith('http')) return path;
-    const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    return `${BASE_URL}${cleanPath}`;
-};
+import { getImageUrl } from '@/utils/image-utils';
 
 export const WatchLaterDropdown: React.FC = () => {
     const { items, isLoading, fetchItems, toggleItem } = useWatchLaterStore();

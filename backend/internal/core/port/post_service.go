@@ -12,8 +12,9 @@ type PostService interface {
 
 	TogglePostLike(userID, postID uint) (bool, error)
 
-	CreateComment(userID, postID uint, parentID *uint, content string) (*domain.PostComment, error)
+	CreateComment(userID, postID uint, parentID, mentionUserID *uint, content string) (*domain.PostComment, error)
 	DeleteComment(userID, commentID uint) error
+	GetCommentByID(id uint) (*domain.PostComment, error)
 	GetCommentsByPostIDPaginated(postID uint, limit, offset int) ([]domain.PostComment, error)
 	GetRepliesByCommentIDPaginated(parentID uint, limit, offset int) ([]domain.PostComment, error)
 	ToggleCommentLike(userID, commentID uint, isLike bool) error

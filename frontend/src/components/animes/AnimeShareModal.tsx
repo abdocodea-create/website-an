@@ -2,6 +2,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Share2, X, Info } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { renderEmojiContent } from '@/utils/render-content';
+import { getImageUrl } from '@/utils/image-utils';
 
 interface AnimeShareModalProps {
     anime: any;
@@ -18,12 +19,6 @@ export function AnimeShareModal({ anime, isOpen, onClose }: AnimeShareModalProps
     const title = lang === 'ar' ? anime.title : (anime.title_en || anime.title);
     const description = lang === 'ar' ? (anime.description || anime.description_en) : (anime.description_en || anime.description);
     const image = anime.cover || anime.image || anime.banner;
-
-    const getImageUrl = (url: string) => {
-        if (!url) return '';
-        if (url.startsWith('http')) return url;
-        return url.startsWith('/') ? url : `/${url}`;
-    };
 
     const shareUrl = window.location.href;
     const shareText = `${title} - AnimeLast`;

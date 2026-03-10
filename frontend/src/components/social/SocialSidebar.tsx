@@ -15,12 +15,7 @@ interface RecentItem {
     timestamp: number;
 }
 
-const getImageUrl = (path?: string | null) => {
-    if (!path) return '';
-    if (path.startsWith('http')) return path;
-    const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    return cleanPath;
-};
+import { getImageUrl } from '@/utils/image-utils';
 
 export const SocialSidebar: React.FC = () => {
     const { i18n } = useTranslation();

@@ -19,10 +19,11 @@ type RegisterRequest struct {
 	Name     string `json:"name" binding:"required"`
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=6"`
+	Avatar   string `json:"avatar"`
 }
 
 type LoginRequest struct {
-	Email    string `json:"email" binding:"required,email"`
+	Name     string `json:"name" binding:"required"`
 	Password string `json:"password" binding:"required"`
 }
 
@@ -33,7 +34,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	if err := h.authService.Register(req.Name, req.Email, req.Password); err != nil {
+	if err := h.authService.Register(req.Name, req.Email, req.Password, req.Avatar); err != nil {
 		if err.Error() == "user already exists" {
 			c.JSON(http.StatusConflict, gin.H{"error": "البريد الإلكتروني مستخدم بالفعل"})
 		} else {
@@ -52,7 +53,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	at, rt, user, err := h.authService.Login(req.Email, req.Password)
+	at, rt, user, err := h.authService.Login(req.Name, req.Password)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return

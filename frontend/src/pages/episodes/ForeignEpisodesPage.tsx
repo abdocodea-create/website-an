@@ -67,6 +67,11 @@ export default function ForeignEpisodesPage() {
         queryFn: async () => (await api.get("/animes?type=foreign")).data,
     });
 
+    const { data: servers } = useQuery({
+        queryKey: ["servers"],
+        queryFn: async () => (await api.get("/servers")).data,
+    });
+
     const handleAnimeChange = (animeId: number) => {
         const selectedAnime = animes?.find((a: any) => a.id == animeId);
         if (selectedAnime) {
@@ -293,6 +298,7 @@ export default function ForeignEpisodesPage() {
                             handleChange={handleChange}
                             handleAnimeChange={handleAnimeChange}
                             animes={animes || []}
+                            serversList={servers || []}
                             isUploading={{ thumbnail: uploadingThumbnail, banner: uploadingBanner }}
                             handleImageUpload={handleImageUpload}
                             addVideoUrl={addVideoUrl}
@@ -314,6 +320,7 @@ export default function ForeignEpisodesPage() {
                         handleChange={handleChange}
                         handleAnimeChange={handleAnimeChange}
                         animes={animes || []}
+                        serversList={servers || []}
                         isUploading={{ thumbnail: uploadingThumbnail, banner: uploadingBanner }}
                         handleImageUpload={handleImageUpload}
                         addVideoUrl={addVideoUrl}

@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ThumbsUp, ThumbsDown, Smile, Sparkles, MoreVertical, Edit2, Trash2, CornerDownRight, ChevronDown, ChevronUp, Loader2, SendHorizontal } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, Smile, Sparkles, MoreVertical, Edit2, Trash2, CornerDownRight, ChevronDown, ChevronUp, Loader2, SendHorizontal, X } from 'lucide-react';
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 import { useAuthStore } from '@/stores/auth-store';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 import api from '@/lib/api';
+import { getImageUrl } from '@/utils/image-utils';
 import { formatDistanceToNow } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { CustomEmojiPicker } from './CustomEmojiPicker';
@@ -25,11 +26,16 @@ interface Comment {
     created_at: string;
     likes: number;
     dislikes: number;
-    user_interaction?: boolean | null; // true = like, false = dislike
+    user_interaction?: boolean | null;
     children?: Comment[];
     parent_id?: number | null;
     post_id?: number;
     episode_id?: number;
+    // For YouTube-style: who this reply is directed at
+    reply_to_user?: {
+        id: number;
+        name: string;
+    } | null;
 }
 
 interface CommentItemProps {
@@ -37,16 +43,56 @@ interface CommentItemProps {
     type: 'episode' | 'post';
     itemId: number;
     depth?: number;
+    // rootParentId: the top-level comment's ID, used so replies-to-replies
+    // are still posted under the same first-level parent (YouTube style)
+    rootParentId?: number;
     onReplySuccess: () => void;
     onUpdateSuccess: (comment: Comment) => void;
     onDeleteSuccess: (id: number) => void;
 }
+
+// Helper: parse @mention from content start
+// Returns { mentionName, restContent } or null if no mention
+const parseMention = (content: string): { mentionName: string; restContent: string } | null => {
+    // Match "@Name: " or "@Name " at the start
+    const match = content.match(/^@([^:]+):\s*([\s\S]*)$/);
+    if (match) {
+        return { mentionName: match[1].trim(), restContent: match[2] };
+    }
+    return null;
+};
+
+// Renders comment content with styled @mention if present
+const CommentContent: React.FC<{ content: string; isAr: boolean }> = ({ content, isAr }) => {
+    const mention = parseMention(content);
+    if (mention) {
+        return (
+            <p className={`text-lg font-bold text-[#0f0f0f] dark:text-[#f1f1f1] leading-7 ${isAr ? 'text-right' : 'text-left'}`}>
+                <Link
+                    to="#"
+                    onClick={(e) => e.preventDefault()}
+                    className="text-blue-600 dark:text-blue-400 hover:underline font-bold"
+                >
+                    @{mention.mentionName}
+                </Link>
+                <span className="text-gray-400 dark:text-gray-500 mx-1">·</span>
+                {renderEmojiContent(mention.restContent)}
+            </p>
+        );
+    }
+    return (
+        <p className={`text-lg font-bold text-[#0f0f0f] dark:text-[#f1f1f1] leading-7 ${isAr ? 'text-right' : 'text-left'}`}>
+            {renderEmojiContent(content)}
+        </p>
+    );
+};
 
 export const CommentItem: React.FC<CommentItemProps> = ({
     comment,
     type,
     itemId,
     depth = 0,
+    rootParentId,
     onReplySuccess,
     onUpdateSuccess,
     onDeleteSuccess
@@ -68,8 +114,10 @@ export const CommentItem: React.FC<CommentItemProps> = ({
     const [currentEmojiTarget, setCurrentEmojiTarget] = useState<'reply' | 'edit'>('reply');
     const emojiRef = useRef<HTMLDivElement>(null);
     const customEmojiRef = useRef<HTMLDivElement>(null);
-    const replyInputRef = useRef<HTMLDivElement>(null);
+    const desktopReplyInputRef = useRef<HTMLDivElement>(null);
+    const mobileReplyInputRef = useRef<HTMLDivElement>(null);
     const editInputRef = useRef<HTMLDivElement>(null);
+    const mobileEditInputRef = useRef<HTMLDivElement>(null);
     const replyContainerRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const [isHighlighted, setIsHighlighted] = useState(false);
@@ -80,11 +128,11 @@ export const CommentItem: React.FC<CommentItemProps> = ({
     const [interaction, setInteraction] = useState<boolean | null | undefined>(comment.user_interaction);
 
     useEffect(() => {
-        // Sync if props change (though typically we manage state locally after init)
         setLikes(comment.likes);
         setDislikes(comment.dislikes);
         setInteraction(comment.user_interaction);
     }, [comment]);
+
 
     // Click outside emoji picker
     useEffect(() => {
@@ -100,53 +148,61 @@ export const CommentItem: React.FC<CommentItemProps> = ({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Focus reply input when opening
+    // Auto-focus reply input when opening (mobile uses mobileReplyInputRef)
     useEffect(() => {
-        if (isReplying && replyInputRef.current) {
-            (replyInputRef.current as any).focus();
+        if (isReplying) {
+            setTimeout(() => {
+                const targetRef = window.innerWidth >= 768 ? desktopReplyInputRef : mobileReplyInputRef;
+                if (targetRef.current) {
+                    (targetRef.current as any).focus?.();
+                }
+            }, 150);
         }
     }, [isReplying]);
 
-    // Handle Deep Linking (Scroll & Highlight & Expand)
+    // Auto-focus edit input with cursor at end (mobile uses mobileEditInputRef)
     useEffect(() => {
-        const params = new URLSearchParams(location.search);
+        if (isEditing) {
+            setTimeout(() => {
+                const targetRef = window.innerWidth >= 768 ? editInputRef : mobileEditInputRef;
+                if (targetRef.current && (targetRef.current as any).focusAtEnd) {
+                    (targetRef.current as any).focusAtEnd();
+                } else if (targetRef.current) {
+                    (targetRef.current as any).focus?.();
+                }
+            }, 150);
+        }
+    }, [isEditing]);
+
+    // Deep linking: scroll to comment and highlight if commentId is in URL
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
         const targetCommentId = params.get('commentId');
-        if (!targetCommentId) return;
+        const targetParentId = params.get('parentId');
 
-        const targetIdNum = parseInt(targetCommentId);
-
-        // Recursive helper to check if this comment has the target descendant
-        const hasChildWithID = (comp: Comment, id: number): boolean => {
-            if (!comp.children) return false;
-            return comp.children.some(child =>
-                child.id === id || hasChildWithID(child, id)
-            );
-        };
-
-        // 1. Auto-expand if we are an ancestor of the targeted comment
-        if (hasChildWithID(comment, targetIdNum)) {
+        // 1. If this is a parent comment and it's mentioned in the URL, expand it
+        if (targetParentId && parseInt(targetParentId) === comment.id) {
             setIsExpanded(true);
         }
 
-        // 2. Scroll and Highlight if we are the targeted comment
-        if (targetIdNum === comment.id) {
+        // 2. If this is the actual target comment, scroll to it and highlight
+        if (targetCommentId && parseInt(targetCommentId) === comment.id && containerRef.current) {
+            // Delay slightly to ensure comments are rendered and parents are expanded
             const timer = setTimeout(() => {
-                if (containerRef.current) {
-                    containerRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    setIsHighlighted(true);
-                    setTimeout(() => setIsHighlighted(false), 3000);
-                }
-            }, 500);
+                containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setIsHighlighted(true);
+
+                // Remove highlight after 3 seconds
+                setTimeout(() => setIsHighlighted(false), 3000);
+            }, 800);
+
             return () => clearTimeout(timer);
         }
-    }, [location.search, comment.id, comment.children]);
+    }, [comment.id, location.search]);
 
     const getAvatarUrl = (avatar?: string) => {
-        if (!avatar) return '';
-        if (avatar.startsWith('http')) return avatar;
-        return avatar.startsWith('/') ? avatar : `/${avatar}`;
+        return getImageUrl(avatar);
     };
-
 
     const toggleLike = async (isLike: boolean) => {
         if (!user) {
@@ -159,17 +215,13 @@ export const CommentItem: React.FC<CommentItemProps> = ({
         const prevLikes = likes;
         const prevDislikes = dislikes;
 
-        // Optimistic Update
         if (interaction === isLike) {
-            // Toggle off
             setInteraction(null);
             if (isLike) setLikes(prev => prev - 1);
             else setDislikes(prev => prev - 1);
         } else {
-            // Toggle on or switch
             if (interaction === true) setLikes(prev => prev - 1);
             if (interaction === false) setDislikes(prev => prev - 1);
-
             setInteraction(isLike);
             if (isLike) setLikes(prev => prev + 1);
             else setDislikes(prev => prev + 1);
@@ -181,29 +233,11 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                 : `/posts/comments/${comment.id}/like`;
             await api.post(url, { is_like: isLike });
         } catch (error) {
-            // Revert
             setInteraction(prevInteraction);
             setLikes(prevLikes);
             setDislikes(prevDislikes);
         }
     };
-
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (isReplying && replyContainerRef.current && !replyContainerRef.current.contains(event.target as Node)) {
-                // If emoji picker is open, don't close the reply form
-                if (showEmojiPicker || showCustomEmojiPicker) return;
-                setIsReplying(false);
-            }
-        };
-
-        if (isReplying) {
-            document.addEventListener('mousedown', handleClickOutside);
-        }
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
-    }, [isReplying, showEmojiPicker, showCustomEmojiPicker]);
 
     const handleReply = async () => {
         if (!replyText.trim() || isSubmitting) return;
@@ -213,9 +247,19 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                 ? `/episodes/${itemId}/comments`
                 : `/posts/${itemId}/comments`;
 
+            // YouTube-style: if replying to a reply (depth > 0),
+            // post under the root parent (first-level comment) instead of creating deeper nesting.
+            // Prefix content with @name: to identify who is being replied to.
+            const isReplyToReply = depth > 0;
+            const actualParentId = isReplyToReply ? (rootParentId ?? comment.id) : comment.id;
+            const contentToSend = isReplyToReply
+                ? `@${comment.user?.name || 'مستخدم'}: ${replyText}`
+                : replyText;
+
             await api.post(url, {
-                content: replyText,
-                parent_id: comment.id,
+                content: contentToSend,
+                parent_id: actualParentId,
+                mention_user_id: isReplyToReply ? comment.user_id : null,
                 ...(type === 'episode' ? { episode_id: itemId } : { post_id: itemId })
             });
             setReplyText('');
@@ -228,9 +272,6 @@ export const CommentItem: React.FC<CommentItemProps> = ({
             setIsSubmitting(false);
         }
     };
-
-    // Note: Comment type in props might not have episode_id field if we didn't add it to interface clearly above.
-    // The Backend Comment struct has EpisodeID. Frontend needs it.
 
     const handleEdit = async () => {
         if (!editText.trim()) return;
@@ -261,14 +302,16 @@ export const CommentItem: React.FC<CommentItemProps> = ({
 
     const onEmojiClick = (emojiData: EmojiClickData) => {
         if (currentEmojiTarget === 'reply') {
-            if (replyInputRef.current && (replyInputRef.current as any).insertText) {
-                (replyInputRef.current as any).insertText(emojiData.emoji);
+            const targetRef = window.innerWidth >= 768 ? desktopReplyInputRef : mobileReplyInputRef;
+            if (targetRef.current && (targetRef.current as any).insertText) {
+                (targetRef.current as any).insertText(emojiData.emoji);
             } else {
                 setReplyText(prev => prev + emojiData.emoji);
             }
         } else {
-            if (editInputRef.current && (editInputRef.current as any).insertText) {
-                (editInputRef.current as any).insertText(emojiData.emoji);
+            const targetRef = window.innerWidth >= 768 ? editInputRef : mobileEditInputRef;
+            if (targetRef.current && (targetRef.current as any).insertText) {
+                (targetRef.current as any).insertText(emojiData.emoji);
             } else {
                 setEditText(prev => prev + emojiData.emoji);
             }
@@ -278,19 +321,27 @@ export const CommentItem: React.FC<CommentItemProps> = ({
 
     const onCustomEmojiClick = (emojiUrl: string) => {
         if (currentEmojiTarget === 'reply') {
-            if (replyInputRef.current && (replyInputRef.current as any).insertEmoji) {
-                (replyInputRef.current as any).insertEmoji(emojiUrl);
+            const targetRef = window.innerWidth >= 768 ? desktopReplyInputRef : mobileReplyInputRef;
+            if (targetRef.current && (targetRef.current as any).insertEmoji) {
+                (targetRef.current as any).insertEmoji(emojiUrl);
+            } else {
+                setReplyText(prev => prev + `![emoji](${emojiUrl})`);
             }
         } else {
-            if (editInputRef.current && (editInputRef.current as any).insertEmoji) {
-                (editInputRef.current as any).insertEmoji(emojiUrl);
+            const targetRef = window.innerWidth >= 768 ? editInputRef : mobileEditInputRef;
+            if (targetRef.current && (targetRef.current as any).insertEmoji) {
+                (targetRef.current as any).insertEmoji(emojiUrl);
+            } else {
+                setEditText(prev => prev + `![emoji](${emojiUrl})`);
             }
         }
+        setShowCustomEmojiPicker(false);
     };
-    // Determine user to display (fallback to current user if data missing but ID matches)
+
     const displayUser = comment.user || (user?.id === comment.user_id ? { name: user.name, avatar: user.avatar } : null);
 
     const isAr = i18n.language === 'ar';
+    // Only indent depth=1 (first-level replies), no deeper indentation
     const marginClass = depth > 0 ? (isAr ? 'mr-4 md:mr-8' : 'ml-4 md:ml-8') : '';
     const borderClass = depth > 0 ? (isAr ? 'border-r-2 pr-4' : 'border-l-2 pl-4') : '';
 
@@ -330,7 +381,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                                 {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true, locale: i18n.language === 'ar' ? ar : undefined })}
                             </span>
 
-                            {/* Actions Menu - Moved here to be after timestamp */}
+                            {/* Actions Menu */}
                             {user && user.id === comment.user_id && (
                                 <div className="relative">
                                     <button
@@ -346,7 +397,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                                     {showOptionsMenu && (
                                         <>
                                             <div className="fixed inset-0 z-[998]" onClick={() => setShowOptionsMenu(false)} />
-                                            <div className={`absolute ${isAr ? 'right-0' : 'left-0'} top-full mt-1 w-32 bg-white dark:bg-[#1f1f1f] rounded-none shadow-xl border border-gray-100 dark:border-[#333] py-1 z-[999] animate-in fade-in zoom-in-95 duration-200`}>
+                                            <div className={`absolute ${isAr ? 'left-0' : 'right-0'} top-full mt-1 w-32 bg-white dark:bg-[#1f1f1f] rounded-none shadow-xl border border-gray-100 dark:border-[#333] py-1 z-[999] animate-in fade-in zoom-in-95 duration-200`}>
                                                 <button
                                                     onClick={() => {
                                                         setCurrentEmojiTarget('edit');
@@ -374,128 +425,124 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                         </div>
                     </div>
 
-                    {/* Text Content */}
+                    {/* Text Content - with @mention rendering */}
                     {!isEditing ? (
-                        <p className={`text-lg font-bold text-[#0f0f0f] dark:text-[#f1f1f1] leading-7 ${isAr ? 'text-right' : 'text-left'}`}>{renderEmojiContent(comment.content)}</p>
+                        <CommentContent content={comment.content} isAr={isAr} />
                     ) : (
-                        <div className={`mt-2 ${isAr ? 'text-right' : 'text-left'}`}>
-                            <div className="relative">
-                                <RichTextInput
-                                    ref={editInputRef}
-                                    value={editText}
-                                    onChange={setEditText}
-                                    className="w-full bg-gray-50 dark:bg-[#272727] border border-transparent focus:border-blue-500 dark:focus:border-blue-500 focus:bg-white dark:focus:bg-[#1f1f1f] rounded-none py-2 px-3 text-sm text-[#0f0f0f] dark:text-[#f1f1f1] resize-none outline-none"
-                                />
-                            </div>
-                            <QuickEmojiRow onEmojiClick={onCustomEmojiClick} />
-                            <div className={`flex items-center gap-2 mt-3 animate-in fade-in slide-in-from-top-2 sticky ${isAr ? 'left-0' : 'right-0'} z-10 bg-white dark:bg-[#111] py-2 px-3 w-full border-blue-500 shadow-sm transition-all relative`}>
-                                {isAr ? (
-                                    <>
-                                        <div className="flex items-center gap-1">
-                                            <button onClick={handleEdit} className="px-3 py-1.5 text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 rounded-none transition shadow-sm">حفظ</button>
-                                            <button onClick={() => setIsEditing(false)} className="px-3 py-1.5 text-xs font-bold text-gray-500 hover:bg-gray-100 dark:hover:bg-[#272727] rounded-none transition">أغلاق</button>
-                                            <button
-                                                onClick={(e) => {
-                                                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                                                    const spaceAbove = rect.top;
-                                                    setPickerPosition(spaceAbove > 450 ? 'top' : 'bottom');
-                                                    setCurrentEmojiTarget('edit');
-                                                    setShowEmojiPicker(!showEmojiPicker);
-                                                    (editInputRef.current as any)?.focus();
-                                                }}
-                                                className="p-1.5 rounded-none hover:bg-gray-200 dark:hover:bg-[#333] transition text-gray-500"
-                                            >
-                                                <Smile className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={(e) => {
-                                                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                                                    const spaceAbove = rect.top;
-                                                    setPickerPosition(spaceAbove > 450 ? 'top' : 'bottom');
-                                                    setCurrentEmojiTarget('edit');
-                                                    setShowCustomEmojiPicker(!showCustomEmojiPicker);
-                                                    (editInputRef.current as any)?.focus();
-                                                }}
-                                                className="p-1.5 rounded-none hover:bg-gray-200 dark:hover:bg-[#333] transition text-gray-500"
-                                                title="رموز مخصصة"
-                                            >
-                                                <Sparkles className="w-4 h-4" />
-                                            </button>
+                        <>
+                            {/* Desktop Edit (hidden on mobile) */}
+                            <div className="hidden md:block mt-1">
+                                <div className="flex gap-2">
+                                    <RichTextInput
+                                        ref={editInputRef}
+                                        value={editText}
+                                        onChange={setEditText}
+                                        className="w-full bg-transparent border-b-2 border-gray-300 dark:border-gray-700 focus:border-black dark:focus:border-white py-2 px-0 text-sm text-[#0f0f0f] dark:text-[#f1f1f1] resize-none outline-none transition-colors duration-200"
+                                    />
+                                </div>
+
+                                {/* Desktop actions bar: [Cancel] [Save] [——emoji row——>] */}
+                                <div className="flex items-center gap-1 mt-1 w-full relative">
+                                    <button
+                                        onClick={() => setIsEditing(false)}
+                                        className="h-9 px-3 flex items-center justify-center rounded-none transition-all shrink-0 font-bold text-sm text-gray-500 dark:text-[#aaa] hover:bg-gray-100 dark:hover:bg-[#272727] active:scale-95"
+                                    >
+                                        {isAr ? 'إلغاء' : 'Cancel'}
+                                    </button>
+
+                                    <button
+                                        onClick={handleEdit}
+                                        className="h-9 px-4 flex items-center justify-center rounded-none transition-all shrink-0 font-bold text-sm bg-transparent text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-[#272727] active:scale-95"
+                                    >
+                                        {isAr ? 'حفظ' : 'Save'}
+                                    </button>
+
+                                    <div className="flex items-center shrink-0">
+                                        <QuickEmojiRow onEmojiClick={onCustomEmojiClick} />
+                                    </div>
+
+                                    {showEmojiPicker && (
+                                        <div ref={emojiRef}>
+                                            <div className="fixed inset-0 z-[2000]" onClick={() => setShowEmojiPicker(false)} />
+                                            <div className={`absolute ${pickerPosition === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'} ${isAr ? 'right-0' : 'left-0'} z-[2001] animate-in zoom-in-95 duration-200 shadow-2xl`}>
+                                                <EmojiPicker onEmojiClick={onEmojiClick} theme={Theme.AUTO} />
+                                            </div>
                                         </div>
+                                    )}
 
-                                        {showEmojiPicker && (
-                                            <>
-                                                <div className="fixed inset-0 z-[2000]" onClick={() => setShowEmojiPicker(false)} />
-                                                <div className={`absolute ${pickerPosition === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'} ${isAr ? 'right-0' : 'left-0'} z-[2001] animate-in zoom-in-95 duration-200 shadow-2xl`}>
-                                                    <EmojiPicker onEmojiClick={onEmojiClick} theme={Theme.AUTO} />
-                                                </div>
-                                            </>
-                                        )}
-
-                                        {showCustomEmojiPicker && (
-                                            <>
-                                                <div className="fixed inset-0 z-[2000]" onClick={() => setShowCustomEmojiPicker(false)} />
-                                                <div className={`absolute ${pickerPosition === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'} ${isAr ? 'right-0' : 'left-0'} z-[2001] animate-in zoom-in-95 duration-200`}>
-                                                    <CustomEmojiPicker onEmojiClick={onCustomEmojiClick} onClose={() => setShowCustomEmojiPicker(false)} />
-                                                </div>
-                                            </>
-                                        )}
-                                    </>
-                                ) : (
-                                    <>
-                                        <div className="flex items-center gap-1">
-                                            <button onClick={handleEdit} className="px-3 py-1.5 text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 rounded-none transition shadow-sm">Save</button>
-                                            <button onClick={() => setIsEditing(false)} className="px-3 py-1.5 text-xs font-bold text-gray-500 hover:bg-gray-100 dark:hover:bg-[#272727] rounded-none transition">Close</button>
-                                            <button
-                                                onClick={(e) => {
-                                                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                                                    const spaceAbove = rect.top;
-                                                    setPickerPosition(spaceAbove > 450 ? 'top' : 'bottom');
-                                                    setCurrentEmojiTarget('edit');
-                                                    setShowEmojiPicker(!showEmojiPicker);
-                                                    (editInputRef.current as any)?.focus();
-                                                }}
-                                                className="p-1.5 rounded-none hover:bg-gray-200 dark:hover:bg-[#333] transition text-gray-500"
-                                            >
-                                                <Smile className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={(e) => {
-                                                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                                                    const spaceAbove = rect.top;
-                                                    setPickerPosition(spaceAbove > 450 ? 'top' : 'bottom');
-                                                    setCurrentEmojiTarget('edit');
-                                                    setShowCustomEmojiPicker(!showCustomEmojiPicker);
-                                                    (editInputRef.current as any)?.focus();
-                                                }}
-                                                className="p-1.5 rounded-none hover:bg-gray-200 dark:hover:bg-[#333] transition text-gray-500"
-                                                title="Custom Emojis"
-                                            >
-                                                <Sparkles className="w-4 h-4" />
-                                            </button>
+                                    {showCustomEmojiPicker && (
+                                        <div ref={customEmojiRef}>
+                                            <div className="fixed inset-0 z-[2000]" onClick={() => setShowCustomEmojiPicker(false)} />
+                                            <div className={`absolute ${pickerPosition === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'} ${isAr ? 'right-0' : 'left-0'} z-[2001] animate-in zoom-in-95 duration-200`}>
+                                                <CustomEmojiPicker onEmojiClick={onCustomEmojiClick} onClose={() => setShowCustomEmojiPicker(false)} />
+                                            </div>
                                         </div>
-
-                                        {showEmojiPicker && (
-                                            <>
-                                                <div className="fixed inset-0 z-[2000]" onClick={() => setShowEmojiPicker(false)} />
-                                                <div className={`absolute ${pickerPosition === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'} ${isAr ? 'right-0' : 'left-0'} z-[2001] animate-in zoom-in-95 duration-200 shadow-2xl`}>
-                                                    <EmojiPicker onEmojiClick={onEmojiClick} theme={Theme.AUTO} />
-                                                </div>
-                                            </>
-                                        )}
-
-                                        {showCustomEmojiPicker && (
-                                            <>
-                                                <div className="fixed inset-0 z-[2000]" onClick={() => setShowCustomEmojiPicker(false)} />
-                                                <div className={`absolute ${pickerPosition === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'} ${isAr ? 'right-0' : 'left-0'} z-[2001] animate-in zoom-in-95 duration-200`}>
-                                                    <CustomEmojiPicker onEmojiClick={onCustomEmojiClick} onClose={() => setShowCustomEmojiPicker(false)} />
-                                                </div>
-                                            </>
-                                        )}
-                                    </>
-                                )}
+                                    )}
+                                </div>
                             </div>
-                        </div>
+
+                            {/* Mobile Edit Modal */}
+                            <div className="md:hidden fixed inset-0 z-[9999] bg-black/50 backdrop-blur-[2px] animate-in fade-in duration-300 ease-out flex flex-col justify-end" onClick={() => setIsEditing(false)}>
+                                <div
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="bg-white dark:bg-[#1a1a1a] w-full max-h-[70vh] rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.2)] flex flex-col animate-in slide-in-from-bottom-full duration-300 ease-out flex-shrink-0"
+                                >
+                                    {/* Modal Handle & Header */}
+                                    <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-[#333] relative">
+                                        <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full mx-auto absolute top-2 left-1/2 -translate-x-1/2 pointer-events-none" />
+                                        <div className="flex items-center gap-2 mt-2">
+                                            <div className="w-9 h-9 rounded-full overflow-hidden bg-purple-600 flex items-center justify-center text-white font-bold text-xs shadow-sm ring-2 ring-gray-100 dark:ring-[#222]">
+                                                {user?.avatar ? (
+                                                    <img src={getAvatarUrl(user.avatar)} alt={user.name} className="object-cover w-full h-full" />
+                                                ) : (
+                                                    <span>{user?.name?.charAt(0).toUpperCase() || 'U'}</span>
+                                                )}
+                                            </div>
+                                            <span className="font-extrabold text-gray-900 dark:text-white text-base leading-tight">
+                                                {isAr ? 'تعديل التعليق' : 'Edit Comment'}
+                                            </span>
+                                        </div>
+                                        <button onClick={() => setIsEditing(false)} className="mt-1 p-2 bg-gray-50 dark:bg-[#222] hover:bg-gray-100 dark:hover:bg-[#333] rounded-full transition-colors text-gray-500 dark:text-gray-400">
+                                            <X className="w-5 h-5" />
+                                        </button>
+                                    </div>
+
+                                    {/* Modal Body & Input */}
+                                    <div className="p-5 flex flex-col overflow-y-auto w-full">
+                                        <div className="flex-1 w-full bg-gray-50 dark:bg-[#111] rounded-2xl p-4 border border-gray-100 dark:border-[#222]">
+                                            <RichTextInput
+                                                ref={mobileEditInputRef}
+                                                value={editText}
+                                                onChange={setEditText}
+                                                placeholder={isAr ? 'عدّل تعليقك...' : 'Edit your comment...'}
+                                                className="w-full bg-transparent border-none py-0 px-0 text-base text-[#0f0f0f] dark:text-[#f1f1f1] resize-none outline-none transition-colors duration-200 min-h-[120px]"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Modal Bottom Actions */}
+                                    <div className="flex items-center justify-between p-4 px-5 border-t border-gray-100 dark:border-[#333] bg-white dark:bg-[#1a1a1a] shrink-0 mt-auto rounded-b-lg w-full overflow-hidden">
+                                        <div className="flex-1 min-w-0 pr-2 rtl:pl-2 rtl:pr-0">
+                                            <QuickEmojiRow onEmojiClick={onCustomEmojiClick} />
+                                        </div>
+                                        <button
+                                            onClick={handleEdit}
+                                            disabled={!editText || isSubmitting}
+                                            className={`h-11 px-5 ml-1 rtl:ml-0 rtl:mr-1 flex items-center justify-center rounded-xl transition-all shrink-0 font-bold text-sm
+                                            ${editText ? 'bg-blue-600 text-white hover:bg-blue-700 active:scale-95 shadow-md shadow-blue-600/20' : 'bg-gray-100 dark:bg-[#222] text-gray-400 cursor-not-allowed'}`}
+                                        >
+                                            {isSubmitting ? (
+                                                <Loader2 className="w-5 h-5 animate-spin" />
+                                            ) : (
+                                                <div className="flex items-center gap-2">
+                                                    <span>{isAr ? 'حفظ' : 'Save'}</span>
+                                                </div>
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </>
                     )}
 
                     {/* Actions Bar */}
@@ -523,170 +570,156 @@ export const CommentItem: React.FC<CommentItemProps> = ({
 
                     {/* Reply Form */}
                     {isReplying && (
-                        <div ref={replyContainerRef} className="mt-3 animate-in fade-in slide-in-from-top-2">
-                            <div className="flex gap-3">
-                                <div className="flex-shrink-0 w-8 h-8 md:w-9 md:h-9 rounded-full overflow-hidden bg-purple-600 flex items-center justify-center text-white font-bold text-xs shadow-sm">
-                                    {user?.avatar ? (
-                                        <img src={getAvatarUrl(user.avatar)} alt={user.name} className="object-cover w-full h-full" />
-                                    ) : (
-                                        <span>{user?.name?.charAt(0).toUpperCase() || 'U'}</span>
-                                    )}
-                                </div>
-                                <div className="flex-1">
-                                    <div className="relative">
-                                        <RichTextInput
-                                            ref={replyInputRef}
-                                            value={replyText}
-                                            onChange={setReplyText}
-                                            placeholder={isAr ? "اكتب ردك هنا..." : "Write your reply here..."}
-                                            className="w-full bg-transparent border-b-2 border-gray-300 dark:border-gray-700 focus:border-blue-500 dark:focus:border-blue-500 rounded-none py-2 px-0 text-sm text-[#0f0f0f] dark:text-[#f1f1f1] resize-none outline-none"
-                                        />
+                        <div ref={replyContainerRef}>
+                            {/* Desktop Container (Hidden on mobile) */}
+                            <div className="hidden md:block mt-2 animate-in fade-in slide-in-from-top-2">
+                                {/* Show who we're replying to (YouTube-style hint) */}
+                                {depth > 0 && (
+                                    <div className={`text-xs text-blue-500 dark:text-blue-400 font-bold mb-1 ${isAr ? 'text-right' : 'text-left'}`}>
+                                        {isAr ? `الرد على @${comment.user?.name}` : `Replying to @${comment.user?.name}`}
                                     </div>
-                                    <QuickEmojiRow onEmojiClick={onCustomEmojiClick} />
-                                    <div className={`flex items-center gap-2 mt-3 animate-in fade-in slide-in-from-top-2 sticky ${isAr ? 'left-0' : 'right-0'} z-10 bg-white dark:bg-[#111] py-2 px-3 w-full border-blue-500 shadow-sm transition-all relative`}>
-                                        {isAr ? (
-                                            <>
-                                                <div className="flex items-center gap-1">
-                                                    <button
-                                                        onClick={handleReply}
-                                                        disabled={!replyText || isSubmitting}
-                                                        className={`w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full transition-all
-                                                            ${replyText
-                                                                ? 'bg-transparent text-black dark:text-white hover:bg-gray-100 dark:hover:bg-[#272727] hover:scale-105 active:scale-95'
-                                                                : 'bg-transparent text-gray-400 cursor-not-allowed'}`}
-                                                        title="إرسال الرد"
-                                                    >
-                                                        {isSubmitting ? (
-                                                            <Loader2 className="w-4 h-4 animate-spin" />
-                                                        ) : (
-                                                            <SendHorizontal className="w-5 h-5 rotate-180" />
-                                                        )}
-                                                    </button>
-                                                    <button
-                                                        onClick={(e) => {
-                                                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                                                            const spaceAbove = rect.top;
-                                                            setPickerPosition(spaceAbove > 450 ? 'top' : 'bottom');
-                                                            setCurrentEmojiTarget('reply');
-                                                            setShowEmojiPicker(!showEmojiPicker);
-                                                            (replyInputRef.current as any)?.focus();
-                                                        }}
-                                                        className="p-1.5 rounded-none hover:bg-gray-200 dark:hover:bg-[#333] transition text-gray-500"
-                                                    >
-                                                        <Smile className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={(e) => {
-                                                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                                                            const spaceAbove = rect.top;
-                                                            setPickerPosition(spaceAbove > 450 ? 'top' : 'bottom');
-                                                            setCurrentEmojiTarget('reply');
-                                                            setShowCustomEmojiPicker(!showCustomEmojiPicker);
-                                                            (replyInputRef.current as any)?.focus();
-                                                        }}
-                                                        className="p-1.5 rounded-none hover:bg-gray-200 dark:hover:bg-[#333] transition text-gray-500"
-                                                        title="رموز مخصصة"
-                                                    >
-                                                        <Sparkles className="w-4 h-4" />
-                                                    </button>
+                                )}
+                                <div className="flex flex-col">
+                                    <div className="flex gap-3 mb-1">
+                                        <div className="flex-shrink-0 w-8 h-8 md:w-9 md:h-9 rounded-full overflow-hidden bg-purple-600 flex items-center justify-center text-white font-bold text-xs shadow-sm">
+                                            {user?.avatar ? (
+                                                <img src={getAvatarUrl(user.avatar)} alt={user.name} className="object-cover w-full h-full" />
+                                            ) : (
+                                                <span>{user?.name?.charAt(0).toUpperCase() || 'U'}</span>
+                                            )}
+                                        </div>
+                                        <div className="flex-1">
+                                            <RichTextInput
+                                                ref={desktopReplyInputRef}
+                                                value={replyText}
+                                                onChange={setReplyText}
+                                                placeholder={isAr ? "اكتب ردك هنا..." : "Write your reply here..."}
+                                                className="w-full bg-transparent border-b-2 border-gray-300 dark:border-gray-700 focus:border-black dark:focus:border-white py-2 px-0 text-sm text-[#0f0f0f] dark:text-[#f1f1f1] resize-none outline-none transition-colors duration-200"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Desktop actions bar: [Cancel] [Reply→] [emoji row] */}
+                                    <div className="flex items-center gap-1 mt-1 w-full relative">
+                                        <button
+                                            onClick={() => setIsReplying(false)}
+                                            className="h-9 px-3 flex items-center justify-center rounded-none transition-all shrink-0 font-bold text-sm text-gray-500 dark:text-[#aaa] hover:bg-gray-100 dark:hover:bg-[#272727] active:scale-95"
+                                        >
+                                            {isAr ? 'إلغاء' : 'Cancel'}
+                                        </button>
+
+                                        <button
+                                            onClick={handleReply}
+                                            disabled={!replyText || isSubmitting}
+                                            className={`h-9 px-4 flex items-center justify-center rounded-none transition-all shrink-0 font-bold text-sm
+                                            ${replyText ? 'bg-transparent text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-[#272727] active:scale-95' : 'bg-transparent text-gray-400 cursor-not-allowed'}`}
+                                        >
+                                            {isSubmitting ? (
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                            ) : (
+                                                <div className="flex items-center gap-2">
+                                                    <span>{isAr ? 'رد' : 'Reply'}</span>
+                                                    <SendHorizontal className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} />
                                                 </div>
-                                                <div className="flex-1" />
-                                                <button onClick={() => setIsReplying(false)} className="px-4 py-2 text-sm font-bold text-gray-700 dark:text-[#f1f1f1] hover:bg-gray-200 dark:hover:bg-[#272727] rounded-full transition">إلغاء</button>
+                                            )}
+                                        </button>
 
-                                                {showEmojiPicker && (
-                                                    <>
-                                                        <div className="fixed inset-0 z-[2000]" onClick={() => setShowEmojiPicker(false)} />
-                                                        <div className={`absolute ${pickerPosition === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'} ${isAr ? 'right-0' : 'left-0'} z-[2001] animate-in zoom-in-95 duration-200 shadow-2xl`}>
-                                                            <EmojiPicker onEmojiClick={onEmojiClick} theme={Theme.AUTO} />
-                                                        </div>
-                                                    </>
-                                                )}
+                                        <div className="flex items-center shrink-0">
+                                            <QuickEmojiRow onEmojiClick={onCustomEmojiClick} />
+                                        </div>
 
-                                                {showCustomEmojiPicker && (
-                                                    <>
-                                                        <div className="fixed inset-0 z-[2000]" onClick={() => setShowCustomEmojiPicker(false)} />
-                                                        <div className={`absolute ${pickerPosition === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'} ${isAr ? 'right-0' : 'left-0'} z-[2001] animate-in zoom-in-95 duration-200`}>
-                                                            <CustomEmojiPicker onEmojiClick={onCustomEmojiClick} onClose={() => setShowCustomEmojiPicker(false)} />
-                                                        </div>
-                                                    </>
-                                                )}
-                                            </>
-                                        ) : (
-                                            <>
-                                                <div className="flex items-center gap-1">
-                                                    <button
-                                                        onClick={handleReply}
-                                                        disabled={!replyText || isSubmitting}
-                                                        className={`w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full transition-all
-                                                            ${replyText
-                                                                ? 'bg-transparent text-black dark:text-white hover:bg-gray-100 dark:hover:bg-[#272727] hover:scale-105 active:scale-95'
-                                                                : 'bg-transparent text-gray-400 cursor-not-allowed'}`}
-                                                        title="Send Reply"
-                                                    >
-                                                        {isSubmitting ? (
-                                                            <Loader2 className="w-4 h-4 animate-spin" />
-                                                        ) : (
-                                                            <SendHorizontal className="w-5 h-5" />
-                                                        )}
-                                                    </button>
-                                                    <button
-                                                        onClick={(e) => {
-                                                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                                                            const spaceAbove = rect.top;
-                                                            setPickerPosition(spaceAbove > 450 ? 'top' : 'bottom');
-                                                            setCurrentEmojiTarget('reply');
-                                                            setShowEmojiPicker(!showEmojiPicker);
-                                                            (replyInputRef.current as any)?.focus();
-                                                        }}
-                                                        className="p-1.5 rounded-none hover:bg-gray-200 dark:hover:bg-[#333] transition text-gray-500"
-                                                    >
-                                                        <Smile className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={(e) => {
-                                                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                                                            const spaceAbove = rect.top;
-                                                            setPickerPosition(spaceAbove > 450 ? 'top' : 'bottom');
-                                                            setCurrentEmojiTarget('reply');
-                                                            setShowCustomEmojiPicker(!showCustomEmojiPicker);
-                                                            (replyInputRef.current as any)?.focus();
-                                                        }}
-                                                        className="p-1.5 rounded-none hover:bg-gray-200 dark:hover:bg-[#333] transition text-gray-500"
-                                                        title="Custom Emojis"
-                                                    >
-                                                        <Sparkles className="w-4 h-4" />
-                                                    </button>
+                                        {showEmojiPicker && (
+                                            <div ref={emojiRef}>
+                                                <div className="fixed inset-0 z-[2000]" onClick={() => setShowEmojiPicker(false)} />
+                                                <div className={`absolute ${pickerPosition === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'} ${isAr ? 'right-0' : 'left-0'} z-[2001] animate-in zoom-in-95 duration-200 shadow-2xl`}>
+                                                    <EmojiPicker onEmojiClick={onEmojiClick} theme={Theme.AUTO} />
                                                 </div>
-                                                <div className="flex-1" />
-                                                <button onClick={() => setIsReplying(false)} className="px-4 py-2 text-sm font-bold text-gray-700 dark:text-[#f1f1f1] hover:bg-gray-200 dark:hover:bg-[#272727] rounded-full transition">Cancel</button>
-
-                                                {showEmojiPicker && (
-                                                    <>
-                                                        <div className="fixed inset-0 z-[2000]" onClick={() => setShowEmojiPicker(false)} />
-                                                        <div className={`absolute ${pickerPosition === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'} ${isAr ? 'right-0' : 'left-0'} z-[2001] animate-in zoom-in-95 duration-200 shadow-2xl`}>
-                                                            <EmojiPicker onEmojiClick={onEmojiClick} theme={Theme.AUTO} />
-                                                        </div>
-                                                    </>
-                                                )}
-
-                                                {showCustomEmojiPicker && (
-                                                    <>
-                                                        <div className="fixed inset-0 z-[2000]" onClick={() => setShowCustomEmojiPicker(false)} />
-                                                        <div className={`absolute ${pickerPosition === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'} ${isAr ? 'right-0' : 'left-0'} z-[2001] animate-in zoom-in-95 duration-200`}>
-                                                            <CustomEmojiPicker onEmojiClick={onCustomEmojiClick} onClose={() => setShowCustomEmojiPicker(false)} />
-                                                        </div>
-                                                    </>
-                                                )}
-                                            </>
+                                            </div>
                                         )}
+
+                                        {showCustomEmojiPicker && (
+                                            <div ref={customEmojiRef}>
+                                                <div className="fixed inset-0 z-[2000]" onClick={() => setShowCustomEmojiPicker(false)} />
+                                                <div className={`absolute ${pickerPosition === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'} ${isAr ? 'right-0' : 'left-0'} z-[2001] animate-in zoom-in-95 duration-200`}>
+                                                    <CustomEmojiPicker onEmojiClick={onCustomEmojiClick} onClose={() => setShowCustomEmojiPicker(false)} />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Mobile Half-Screen Modal */}
+                            <div className="md:hidden fixed inset-0 z-[9999] bg-black/50 backdrop-blur-[2px] animate-in fade-in duration-300 ease-out flex flex-col justify-end" onClick={() => setIsReplying(false)}>
+                                {/* Prevent click propagation to overlay */}
+                                <div
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="bg-white dark:bg-[#1a1a1a] w-full max-h-[70vh] rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.2)] flex flex-col animate-in slide-in-from-bottom-full duration-300 ease-out flex-shrink-0"
+                                >
+                                    {/* Modal Handle & Header */}
+                                    <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-[#333] relative">
+                                        <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full mx-auto absolute top-2 left-1/2 -translate-x-1/2 pointer-events-none" />
+                                        <div className="flex items-center gap-2 mt-2">
+                                            <div className="w-9 h-9 rounded-full overflow-hidden bg-purple-600 flex items-center justify-center text-white font-bold text-xs shadow-sm ring-2 ring-gray-100 dark:ring-[#222]">
+                                                {user?.avatar ? (
+                                                    <img src={getAvatarUrl(user.avatar)} alt={user.name} className="object-cover w-full h-full" />
+                                                ) : (
+                                                    <span>{user?.name?.charAt(0).toUpperCase() || 'U'}</span>
+                                                )}
+                                            </div>
+                                            <span className="font-extrabold text-gray-900 dark:text-white text-base leading-tight">
+                                                {isAr ? 'إضافة رد' : 'Add Reply'}
+                                                <span className="block text-xs font-normal text-gray-500 dark:text-gray-400">
+                                                    {isAr ? `على @${comment.user?.name}` : `to @${comment.user?.name}`}
+                                                </span>
+                                            </span>
+                                        </div>
+                                        <button onClick={() => setIsReplying(false)} className="mt-1 p-2 bg-gray-50 dark:bg-[#222] hover:bg-gray-100 dark:hover:bg-[#333] rounded-full transition-colors text-gray-500 dark:text-gray-400">
+                                            <X className="w-5 h-5" />
+                                        </button>
+                                    </div>
+
+                                    {/* Modal Body & Input */}
+                                    <div className="p-5 flex flex-col overflow-y-auto w-full">
+                                        <div className="flex-1 w-full bg-gray-50 dark:bg-[#111] rounded-2xl p-4 border border-gray-100 dark:border-[#222]">
+                                            <RichTextInput
+                                                ref={mobileReplyInputRef}
+                                                value={replyText}
+                                                onChange={setReplyText}
+                                                placeholder={isAr ? "شاركنا برأيك هنا..." : "Share your thoughts here..."}
+                                                className="w-full bg-transparent border-none py-0 px-0 text-base text-[#0f0f0f] dark:text-[#f1f1f1] resize-none outline-none transition-colors duration-200 min-h-[120px]"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Modal Bottom Actions */}
+                                    <div className="flex items-center justify-between p-4 px-5 border-t border-gray-100 dark:border-[#333] bg-white dark:bg-[#1a1a1a] shrink-0 mt-auto rounded-b-lg w-full overflow-hidden">
+                                        <div className="flex-1 min-w-0 pr-2 rtl:pl-2 rtl:pr-0">
+                                            <QuickEmojiRow onEmojiClick={onCustomEmojiClick} />
+                                        </div>
+                                        <button
+                                            onClick={handleReply}
+                                            disabled={!replyText || isSubmitting}
+                                            className={`h-11 px-5 ml-1 rtl:ml-0 rtl:mr-1 flex items-center justify-center rounded-xl transition-all shrink-0 font-bold text-sm
+                                            ${replyText ? 'bg-blue-600 text-white hover:bg-blue-700 active:scale-95 shadow-md shadow-blue-600/20' : 'bg-gray-100 dark:bg-[#222] text-gray-400 cursor-not-allowed'}`}
+                                        >
+                                            {isSubmitting ? (
+                                                <Loader2 className="w-5 h-5 animate-spin" />
+                                            ) : (
+                                                <div className="flex items-center gap-2">
+                                                    <span>{isAr ? 'إرسال' : 'Send'}</span>
+                                                    <SendHorizontal className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} />
+                                                </div>
+                                            )}
+                                        </button>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    {/* Emoji Picker Popover */}
-                    {showEmojiPicker && (
+                    {/* Emoji Picker Popover (fallback) */}
+                    {showEmojiPicker && !isReplying && !isEditing && (
                         <div ref={emojiRef} className="absolute z-[2000] mt-2 shadow-xl">
                             <EmojiPicker
                                 onEmojiClick={onEmojiClick}
@@ -695,8 +728,12 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                         </div>
                     )}
 
-                    {/* Nested Replies */}
-                    {comment.children && comment.children.length > 0 && (
+                    {/* ===== FLAT REPLIES (YouTube-style) =====
+                        Only rendered for depth=0 (top-level comments).
+                        All children (replies + replies-to-replies) are flat at depth=1.
+                        Each child gets rootParentId = comment.id so further replies
+                        are always posted under this top-level comment. */}
+                    {depth === 0 && comment.children && comment.children.length > 0 && (
                         <div className="mt-3">
                             <button onClick={() => setIsExpanded(!isExpanded)} className="flex items-center gap-1 text-xs font-bold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 px-2 py-1 rounded-none transition w-fit mb-2">
                                 {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -710,7 +747,8 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                                             comment={child}
                                             type={type}
                                             itemId={itemId}
-                                            depth={depth + 1}
+                                            depth={1}
+                                            rootParentId={comment.id}
                                             onReplySuccess={onReplySuccess}
                                             onUpdateSuccess={onUpdateSuccess}
                                             onDeleteSuccess={onDeleteSuccess}
@@ -725,3 +763,4 @@ export const CommentItem: React.FC<CommentItemProps> = ({
         </div>
     );
 };
+

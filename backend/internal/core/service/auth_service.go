@@ -25,7 +25,7 @@ func NewAuthService(userRepo port.UserRepository, roleRepo port.RoleRepository, 
 	}
 }
 
-func (s *AuthService) Register(name, email, password string) error {
+func (s *AuthService) Register(name, email, password, avatar string) error {
 	// Check if user exists
 	existing, _ := s.userRepo.GetByEmail(email)
 	if existing != nil {
@@ -39,7 +39,7 @@ func (s *AuthService) Register(name, email, password string) error {
 	}
 
 	// Assign default role (e.g., "User")
-	role, err := s.roleRepo.GetByName("User")
+	role, err := s.roleRepo.GetRoleByName("User")
 	if err != nil {
 		// Fallback or error - simplistic for now. Seeders should ensure roles exist.
 		// For safety, error out or create if not exists (seeders better).
@@ -51,13 +51,14 @@ func (s *AuthService) Register(name, email, password string) error {
 		Email:    email,
 		Password: string(hashed),
 		RoleID:   role.ID,
+		Avatar:   avatar,
 	}
 
 	return s.userRepo.CreateUser(user)
 }
 
-func (s *AuthService) Login(email, password string) (string, string, *domain.User, error) {
-	user, err := s.userRepo.GetByEmail(email)
+func (s *AuthService) Login(name, password string) (string, string, *domain.User, error) {
+	user, err := s.userRepo.GetUserByName(name)
 	if err != nil {
 		return "", "", nil, errors.New("invalid credentials")
 	}

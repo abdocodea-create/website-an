@@ -3,6 +3,8 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
 
 	"github.com/joho/godotenv"
 )
@@ -42,19 +44,16 @@ func LoadConfig() (*Config, error) {
 
 	dbUrl := os.Getenv("DATABASE_URL")
 	if dbUrl == "" {
-		// Default local Config for dev
-		// Check where we are running from
-		cwd, _ := os.Getwd()
-		fmt.Printf("Current Working Directory: %s\n", cwd)
-
-		// If we are in cmd/server, go up two levels for the db
-		// A simple heuristic: try to find saas.db in current, if not, try ../../saas.db
-		if _, err := os.Stat("saas.db"); err == nil {
-			dbUrl = "saas.db"
-		} else if _, err := os.Stat("../../saas.db"); err == nil {
-			dbUrl = "../../saas.db"
+		// Determine database path relative to project root reliably
+		_, filename, _, ok := runtime.Caller(0)
+		if ok {
+			// filename is .../backend/config/config.go
+			// root is .../backend/
+			root := filepath.Dir(filepath.Dir(filename))
+			dbUrl = filepath.Join(root, "cmd", "server", "saas.db")
+			fmt.Printf("Defaulting database to stable path: %s\n", dbUrl)
 		} else {
-			dbUrl = "saas.db" // Fallback to creating it here if not found anywhere
+			dbUrl = filepath.Join("cmd", "server", "saas.db")
 		}
 	}
 

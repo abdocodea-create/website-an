@@ -45,9 +45,10 @@ func NewCommentHandler(repo *repository.CommentRepository, notifRepo *repository
 // Create handles creating a new comment
 func (h *CommentHandler) Create(c *gin.Context) {
 	var input struct {
-		Content   string `json:"content" binding:"required"`
-		EpisodeID uint   `json:"episode_id"` // Optional if passing via param
-		ParentID  *uint  `json:"parent_id"`
+		Content       string `json:"content" binding:"required"`
+		EpisodeID     uint   `json:"episode_id"` // Optional if passing via param
+		ParentID      *uint  `json:"parent_id"`
+		MentionUserID *uint  `json:"mention_user_id"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -69,10 +70,11 @@ func (h *CommentHandler) Create(c *gin.Context) {
 	}
 
 	comment := domain.Comment{
-		Content:   input.Content,
-		EpisodeID: input.EpisodeID,
-		UserID:    userID,
-		ParentID:  input.ParentID,
+		Content:       input.Content,
+		EpisodeID:     input.EpisodeID,
+		UserID:        userID,
+		ParentID:      input.ParentID,
+		MentionUserID: input.MentionUserID,
 	}
 
 	if err := h.repo.Create(&comment); err != nil {
@@ -85,13 +87,11 @@ func (h *CommentHandler) Create(c *gin.Context) {
 		comment = *fullComment
 	}
 
-	// NOTIFICATION LOGIC: Reply
+	// NOTIFICATION LOGIC
 	if comment.ParentID != nil {
-		// Fetch parent to get owner
 		parent, err := h.repo.GetByID(*comment.ParentID)
-		if err == nil && parent.UserID != userID {
-			// Create notification
-			// Create rich notification data
+		if err == nil {
+			// Rich metadata for notifications
 			animeTitle := parent.Episode.Anime.Title
 			animeImage := parent.Episode.Anime.Image
 			epNum := parent.Episode.EpisodeNumber
@@ -113,21 +113,31 @@ func (h *CommentHandler) Create(c *gin.Context) {
 			}
 			dataJSON, _ := json.Marshal(dataPayload)
 
-			notif := &domain.Notification{
-				UserID: parent.UserID,
-				Type:   domain.NotificationTypeReply,
-				Data:   dataJSON,
+			// 1. Notify Parent Owner (if not the same user)
+			if parent.UserID != userID {
+				notif := &domain.Notification{
+					UserID: parent.UserID,
+					Type:   domain.NotificationTypeReply,
+					Data:   dataJSON,
+				}
+				h.notifRepo.Create(notif)
+				h.hub.SendToUser(parent.UserID, gin.H{"type": "notification", "data": notif})
 			}
-			h.notifRepo.Create(notif)
 
-			// Broadcast via WebSocket
-			h.hub.SendToUser(parent.UserID, gin.H{
-				"type": "notification",
-				"data": notif,
-			})
+			// 2. Notify Mentioned User (if different from current user AND different from parent owner)
+			// This covers the YouTube-style "Reply to a Reply" scenario
+			if comment.MentionUserID != nil && *comment.MentionUserID != userID && *comment.MentionUserID != parent.UserID {
+				notif := &domain.Notification{
+					UserID: *comment.MentionUserID,
+					Type:   domain.NotificationTypeReply, // Or a specific TypeMention if added to domain
+					Data:   dataJSON,
+				}
+				h.notifRepo.Create(notif)
+				h.hub.SendToUser(*comment.MentionUserID, gin.H{"type": "notification", "data": notif})
+			}
 		}
 
-		// Track Reply with metadata
+		// Track History
 		repliedToUser := "User"
 		if parent != nil && parent.User != nil {
 			repliedToUser = parent.User.Name
@@ -135,7 +145,6 @@ func (h *CommentHandler) Create(c *gin.Context) {
 		metadata := `{"content": "` + escapeJSON(comment.Content) + `", "replied_to_user": "` + escapeJSON(repliedToUser) + `", "episode_id": ` + strconv.Itoa(int(comment.EpisodeID)) + `}`
 		go h.historyService.TrackWithMetadata(userID, domain.ActivityReply, &comment.EpisodeID, nil, &comment.ID, metadata, "")
 	} else {
-		// Track Comment with metadata
 		metadata := `{"content": "` + escapeJSON(comment.Content) + `", "episode_id": ` + strconv.Itoa(int(comment.EpisodeID)) + `}`
 		go h.historyService.TrackWithMetadata(userID, domain.ActivityComment, &comment.EpisodeID, nil, &comment.ID, metadata, "")
 	}

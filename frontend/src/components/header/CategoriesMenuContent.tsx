@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { slugify } from "@/utils/slug";
+import { getImageUrl } from '@/utils/image-utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -37,12 +38,6 @@ interface CategoriesMenuContentProps {
     isVisible?: boolean;
 }
 
-const getImageUrl = (path: string | undefined) => {
-    if (!path) return '';
-    if (path.startsWith('http')) return path;
-    const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    return `${cleanPath}`;
-};
 
 export function CategoriesMenuContent({ onClose, isVisible }: CategoriesMenuContentProps) {
     const navigate = useNavigate();

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { getImageUrl } from '@/utils/image-utils';
 import { X, MessageSquare, Heart, UserPlus, UserCheck, UserX } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { renderEmojiContent } from '@/utils/render-content';
@@ -68,15 +69,28 @@ export const NotificationPopup: React.FC = () => {
         }
 
         const data = notification.data;
-        const animeId = data.anime_id || data.slug; // Fallback to slug if id missing
-        const episodeNum = data.episode_number;
         const commentId = data.comment_id;
         const parentId = data.parent_id;
+
+        // Community Post notification
+        if (data.post_id) {
+            let url = `/${currentLang}/community/post/${data.post_id}`;
+            if (commentId) {
+                url += `?commentId=${commentId}`;
+                if (parentId) url += `&parentId=${parentId}`;
+            }
+            navigate(url);
+            setNotification(null);
+            return;
+        }
+
+        // Watch Page (Anime Episode) notification
+        const animeId = data.anime_id || data.slug;
+        const episodeNum = data.episode_number;
 
         if (animeId && episodeNum !== undefined) {
             let url = `/${currentLang}/watch/${animeId}/${episodeNum}`;
             if (commentId) {
-                // Handle deep linking like in "the past"
                 url += `?commentId=${commentId}`;
                 if (parentId) url += `&parentId=${parentId}`;
             }
@@ -86,10 +100,7 @@ export const NotificationPopup: React.FC = () => {
     };
 
     const getAvatarUrl = (avatar?: string) => {
-        if (!avatar) return '';
-        if (avatar.startsWith('http')) return avatar;
-        if (avatar.startsWith('/storage/')) return avatar; // Backend storage path
-        return avatar.startsWith('/') ? avatar : `/${avatar}`;
+        return getImageUrl(avatar);
     };
 
     if (!notification || !notification.data || isChatPage) return null;

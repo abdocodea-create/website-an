@@ -11,6 +11,13 @@ const router = createBrowserRouter(routes);
 import './index.css'
 import './i18n'
 
+// Dynamically inject flag-icons CSS from backend
+const apiBase = (import.meta.env.VITE_API_URL || '').replace('/api', '');
+const flagIconsLink = document.createElement('link');
+flagIconsLink.rel = 'stylesheet';
+flagIconsLink.href = `${apiBase}/flag-icons/css/flag-icons.min.css`;
+document.head.appendChild(flagIconsLink);
+
 import "@fontsource/plus-jakarta-sans/400.css";
 import "@fontsource/plus-jakarta-sans/500.css";
 import "@fontsource/plus-jakarta-sans/600.css";

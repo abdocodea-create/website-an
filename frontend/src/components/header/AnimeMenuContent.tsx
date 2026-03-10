@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import api from '@/lib/api';
 import { slugify } from "@/utils/slug";
+import { getImageUrl } from '@/utils/image-utils';
 import { cn } from '@/lib/utils';
 
 interface AnimeMenuContentProps {
@@ -12,13 +13,6 @@ interface AnimeMenuContentProps {
     isVisible?: boolean;
 }
 
-const BASE_URL = '';
-const getImageUrl = (path: string | undefined) => {
-    if (!path) return '';
-    if (path.startsWith('http')) return path;
-    const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    return `${cleanPath}`;
-};
 
 export function AnimeMenuContent({ onClose, isVisible }: AnimeMenuContentProps) {
     const navigate = useNavigate();

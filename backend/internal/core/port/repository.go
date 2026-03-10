@@ -5,6 +5,7 @@ import "backend/internal/core/domain"
 type UserRepository interface {
 	CreateUser(user *domain.User) error
 	GetByEmail(email string) (*domain.User, error)
+	GetUserByName(name string) (*domain.User, error)
 	GetUserByID(id uint) (*domain.User, error)
 	GetAllUsers(limit int) ([]domain.User, error)
 	UpdateUser(user *domain.User) error
@@ -35,7 +36,7 @@ type UserRepository interface {
 }
 
 type RoleRepository interface {
-	GetByName(name string) (*domain.Role, error)
+	GetRoleByName(name string) (*domain.Role, error)
 	GetRoleByID(id uint) (*domain.Role, error)
 	GetAllRoles() ([]domain.Role, error)
 	CreateRole(role *domain.Role) error
@@ -168,4 +169,20 @@ type MessageRepository interface {
 	GetRecentConversations(userID uint) ([]domain.Message, error)
 	MarkAsRead(senderID, receiverID uint) error
 	CountUnreadBetweenUsers(senderID, receiverID uint) (int64, error)
+}
+type CountryRepository interface {
+	CreateCountry(country *domain.Country) error
+	GetCountryByID(id uint) (*domain.Country, error)
+	GetAllCountries(search string) ([]domain.Country, error)
+	UpdateCountry(country *domain.Country) error
+	DeleteCountry(id uint) error
+	SearchCountries(query string) ([]domain.Country, error)
+}
+
+type ServerRepository interface {
+	CreateServer(server *domain.Server) error
+	GetServerByID(id uint) (*domain.Server, error)
+	GetAllServers(search string) ([]domain.Server, error)
+	UpdateServer(server *domain.Server) error
+	DeleteServer(id uint) error
 }

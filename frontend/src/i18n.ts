@@ -20,6 +20,7 @@ i18n
                         roles: 'Roles',
                         permissions: 'Permissions',
                         settings: 'Settings',
+                        countries: 'Countries',
                         logout: 'Logout',
                         welcome: 'Welcome',
                         app_name_default: 'SaaS App', // Default fallback
@@ -54,6 +55,7 @@ i18n
                         roles: 'الأدوار',
                         permissions: 'الصلاحيات',
                         settings: 'الإعدادات',
+                        countries: 'الدول',
                         logout: 'تسجيل الخروج',
                         welcome: 'مرحبا',
                         app_name_default: 'تطبيق ساس',

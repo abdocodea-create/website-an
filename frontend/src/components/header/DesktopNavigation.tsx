@@ -13,14 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { AnimeMenuContent } from './AnimeMenuContent';
 import { CategoriesMenuContent } from './CategoriesMenuContent';
 
-// Helper for image URLs
-const BASE_URL = '';
-const getImageUrl = (path?: string | null) => {
-    if (!path) return '';
-    if (path.startsWith('http')) return path;
-    const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    return `${BASE_URL}${cleanPath}`;
-};
+import { getImageUrl } from '@/utils/image-utils';
 
 export function DesktopNavigation() {
     const navigate = useNavigate();
@@ -76,6 +69,13 @@ export function DesktopNavigation() {
                 className="flex items-center gap-2 px-4 py-1 text-base font-bold text-gray-700 transition-all duration-200 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-neutral-800"
             >
                 <span className="hover-underline-expand">{isRtl ? 'الرئيسية' : 'Home'}</span>
+            </button>
+
+            <button
+                onClick={() => navigate(`/${i18n.language}/animes`)}
+                className="flex items-center gap-2 px-4 py-1 text-base font-bold text-gray-700 transition-all duration-200 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-neutral-800"
+            >
+                <span className="hover-underline-expand">{isRtl ? 'جديد' : 'New'}</span>
             </button>
 
             <button

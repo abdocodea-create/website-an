@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { LayoutDashboard, Users, Shield, Key, Settings, Box, Sparkles, Folder, Globe, Tag, Calendar, Building, Languages, Film, Play, Flag, BarChart3, MessageSquare, Newspaper } from "lucide-react";
+import { LayoutDashboard, Users, Shield, Key, Settings, Box, Sparkles, Folder, Globe, Tag, Calendar, Building, Languages, Film, Play, Flag, BarChart3, MessageSquare, Newspaper, Server } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
@@ -78,10 +78,22 @@ export function Sidebar({ className, onNavigate, lang = 'en' }: SidebarProps) {
             active: pathname.startsWith(`/${lang}/dashboard/studios`),
         },
         {
-            label: "Languages",
+            label: t('common.languages'),
             icon: Languages,
             href: `/${lang}/dashboard/languages`,
             active: pathname.startsWith(`/${lang}/dashboard/languages`),
+        },
+        {
+            label: t('common.countries'),
+            icon: Globe,
+            href: `/${lang}/dashboard/countries`,
+            active: pathname.startsWith(`/${lang}/dashboard/countries`),
+        },
+        {
+            label: i18n.language === 'ar' ? 'السيرفرات' : 'Servers',
+            icon: Server,
+            href: `/${lang}/dashboard/servers`,
+            active: pathname.startsWith(`/${lang}/dashboard/servers`),
         },
         {
             label: "Animes",

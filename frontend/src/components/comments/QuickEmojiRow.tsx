@@ -18,46 +18,60 @@ export const QuickEmojiRow: React.FC<QuickEmojiRowProps> = ({ onEmojiClick }) =>
         <div className="relative group/emoji-row">
             <style dangerouslySetInnerHTML={{
                 __html: `
-                .quick-emoji-scroll::-webkit-scrollbar {
-                    height: 3px;
+                .hide-scrollbar::-webkit-scrollbar {
+                    display: none;
                 }
-                .quick-emoji-scroll::-webkit-scrollbar-track {
-                    background: transparent;
-                }
-                .quick-emoji-scroll::-webkit-scrollbar-thumb {
-                    background: rgba(156, 163, 175, 0.3);
-                    border-radius: 10px;
-                }
-                .quick-emoji-scroll::-webkit-scrollbar-thumb:hover {
-                    background: rgba(156, 163, 175, 0.6);
-                }
-                .dark .quick-emoji-scroll::-webkit-scrollbar-thumb {
-                    background: rgba(255, 255, 255, 0.1);
-                }
-                .dark .quick-emoji-scroll::-webkit-scrollbar-thumb:hover {
-                    background: rgba(255, 255, 255, 0.2);
+                .hide-scrollbar {
+                    -ms-overflow-style: none;
+                    scrollbar-width: none;
                 }
             `}} />
             <div
                 ref={scrollRef}
-                className="quick-emoji-scroll flex items-center gap-1.5 overflow-x-auto py-1 px-1 select-none h-11 sm:h-[49px] pb-2 scroll-smooth"
+                className="hide-scrollbar max-w-[520px] flex items-center gap-0.5 overflow-x-auto py-1 px-1 select-none h-14 pb-1 cursor-grab active:cursor-grabbing touch-pan-x"
+                onMouseDown={(e) => {
+                    const ele = scrollRef.current;
+                    if (!ele) return;
+                    let isDown = true;
+                    let startX = e.pageX - ele.offsetLeft;
+                    let scrollLeft = ele.scrollLeft;
+
+                    const mouseMoveHandler = (e: MouseEvent) => {
+                        if (!isDown) return;
+                        e.preventDefault();
+                        const x = e.pageX - ele.offsetLeft;
+                        const walk = (x - startX) * 2.5; // Scroll-fast
+                        ele.scrollLeft = scrollLeft - walk;
+                    };
+
+                    const mouseUpHandler = () => {
+                        isDown = false;
+                        ele.removeEventListener('mousemove', mouseMoveHandler);
+                        ele.removeEventListener('mouseup', mouseUpHandler);
+                        ele.removeEventListener('mouseleave', mouseUpHandler);
+                    };
+
+                    ele.addEventListener('mousemove', mouseMoveHandler);
+                    ele.addEventListener('mouseup', mouseUpHandler);
+                    ele.addEventListener('mouseleave', mouseUpHandler);
+                }}
             >
                 {QUICK_EMOJIS.map((url, idx) => (
                     <button
                         key={idx}
-                        onMouseDown={(e) => e.preventDefault()}
                         onClick={() => onEmojiClick(url)}
-                        className="flex-shrink-0 basis-[8.4%] sm:basis-[6.2%] max-w-[26px] sm:max-w-[31px] aspect-square hover:bg-gray-100 dark:hover:bg-[#2a2a2a] rounded-md transition-all active:scale-90"
+                        className="flex-shrink-0 w-[42px] h-[42px] hover:bg-gray-100 dark:hover:bg-[#2a2a2a] rounded-md transition-all active:scale-95"
                     >
                         <img
                             src={url}
                             alt={`emoji-${idx}`}
-                            className="w-full h-full object-contain p-1 pointer-events-none"
+                            className="w-full h-full object-contain p-1.5 scale-95 pointer-events-none drag-none select-none"
                             loading="lazy"
+                            draggable="false"
                         />
                     </button>
                 ))}
             </div>
-        </div>
+        </div >
     );
 };

@@ -36,7 +36,7 @@ func sanitizeSlug(slug string) string {
 
 func main() {
 	// Open database - pointing to the active server DB
-	db, err := gorm.Open(sqlite.Open("../server/saas.db"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open("../../saas.db"), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("Failed to connect: %v", err)
 	}
